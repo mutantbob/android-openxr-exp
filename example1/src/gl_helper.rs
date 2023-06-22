@@ -277,19 +277,6 @@ impl<F> Drop for Shader<F> {
 pub struct Program(GLuint);
 
 impl Program {
-    pub fn get_attribute_location(&self, p0: &str) -> Result<GLuint, GLErrorWrapper> {
-        let name = CString::new(p0).unwrap();
-        let rval = unsafe { gl::GetAttribLocation(self.0, name.as_ptr()) };
-        explode_if_gl_error()?;
-        if rval < 0 {
-            panic!("no attribute named {} on this program", p0)
-        } else {
-            Ok(rval as GLuint)
-        }
-    }
-}
-
-impl Program {
     pub fn new_empty() -> Result<Self, GLErrorWrapper> {
         let rval = unsafe { gl::CreateProgram() };
         explode_if_gl_error()?;
@@ -357,6 +344,20 @@ impl Program {
         Ok(rval as GLuint)
     }
 
+    pub fn get_attribute_location(&self, p0: &str) -> Result<GLuint, GLErrorWrapper> {
+        let name = CString::new(p0).unwrap();
+        let rval = unsafe { gl::GetAttribLocation(self.0, name.as_ptr()) };
+        explode_if_gl_error()?;
+        if rval < 0 {
+            panic!("no attribute named {} on this program", p0)
+        } else {
+            Ok(rval as GLuint)
+        }
+    }
+    pub fn set_uniform_3f(&self, name: &str, x: f32, y: f32, z: f32) -> Result<(), GLErrorWrapper> {
+        unsafe { gl::Uniform3f(self.get_uniform_location(name)? as GLint, x, y, z) }
+        explode_if_gl_error()
+    }
     pub fn set_mat4(&self, location: GLint, val: &[[f32; 4]; 4]) -> Result<(), GLErrorWrapper> {
         unsafe { gl::UniformMatrix4fv(location, 1, 0, val[0].as_ptr()) }
         explode_if_gl_error()
