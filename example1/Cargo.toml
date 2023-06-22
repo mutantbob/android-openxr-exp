@@ -1,0 +1,45 @@
+[package]
+name = "glutin-openxr1"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+android-activity = { version = "*" , features=["native-activity"]}
+obj = { version = "0.10", features = ["genmesh"] }
+android_logger = "*"
+log="*"
+openxr = { version = "*", features=["linked"] }
+openxr-sys = "*"
+glutin = "0.30"
+#glium = "*"
+gl="*"
+egli="*"
+winit = "*"
+raw-window-handle = "*"
+itertools = "*"
+
+#[dependencies.glium]
+##version = "0.32.1"
+#path="../../../vendor/glium"
+
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[patch.crates-io]
+glutin = { path = "../../../vendor/glutin/glutin" }
+
+[package.metadata.android]
+apk_label = "Rust apk test"
+target_sdk_version = 29
+min_sdk_version = 29
+#runtime_libs = "libs"
+
+[[package.metadata.android.application.activity.intent_filter]]
+actions = ["android.intent.action.MAIN"]
+categories = [
+    "android.intent.category.LAUNCHER",
+    "com.oculus.intent.category.VR",
+]
