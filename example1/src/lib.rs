@@ -19,6 +19,8 @@ pub mod kludges;
 pub mod linear;
 pub mod openxr_helpers;
 pub mod rainbow_triangle;
+pub mod sun_phong_shader;
+pub mod suzanne;
 
 //
 
@@ -105,7 +107,6 @@ fn event_loop_one_pass<T: Scene, X: std::fmt::Debug, E: std::fmt::Debug>(
 //#[cfg(target_os = "android")]
 #[no_mangle]
 fn android_main(android_app: AndroidApp) {
-    std::env::set_var("RUST_BACKTRACE", "full");
     android_logger::init_once(
         android_logger::Config::default().with_max_level(log::LevelFilter::Trace),
     );
