@@ -156,7 +156,7 @@ impl<'a> Renderer<'a> {
             let model = xr_matrix4x4f_multiply(&upright, &model);
             let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);
             let model = xr_matrix4x4f_multiply(&translate, &model);
-            let identity = Default::default();
+            let identity = xr_matrix4x4f_identity();
             self.suzanne.draw(
                 &matrix,
                 &identity,

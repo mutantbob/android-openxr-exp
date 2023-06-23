@@ -176,6 +176,16 @@ impl std::ops::Mul for XrQuaternionf {
 
 //
 
+#[rustfmt::skip]
+pub fn xr_matrix4x4f_identity() -> XrMatrix4x4f {
+    [
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
+    ]
+}
+
 pub fn xr_matrix4x4f_create_projection_fov(
     graphics_api: GraphicsAPI,
     fov: &XrFovf,
