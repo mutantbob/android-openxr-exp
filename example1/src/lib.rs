@@ -14,6 +14,8 @@ use winit::platform::android::EventLoopBuilderExtAndroid;
 
 pub mod drawcore;
 pub mod errors;
+pub mod flat_color_shader;
+pub mod gl_fancy;
 pub mod gl_helper;
 pub mod kludges;
 pub mod linear;

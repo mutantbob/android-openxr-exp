@@ -2,7 +2,6 @@ use crate::gl_helper::{explode_if_gl_error, gl_offset_for, GLErrorWrapper, Progr
 use crate::linear::XrMatrix4x4f;
 use crate::rainbow_triangle::Renderer;
 use gl::types::{GLfloat, GLint, GLsizei, GLushort};
-use std::mem::size_of;
 
 pub trait GeometryBuffer {
     fn activate(&self);
@@ -44,9 +43,9 @@ impl SunPhongShader {
             program,
             sal_position,
             sal_normal,
-            sul_projection: sul_projection,
-            sul_view: sul_view,
-            sul_model: sul_model,
+            sul_projection,
+            sul_view,
+            sul_model,
         })
     }
 
@@ -71,8 +70,6 @@ impl SunPhongShader {
         self.set_color(color)?;
 
         buffers.activate();
-
-        self.rig_attribute_arrays();
 
         unsafe {
             gl::DrawElements(
@@ -110,6 +107,7 @@ impl SunPhongShader {
     }
 
     pub fn rig_attribute_arrays(&self) -> Result<(), GLErrorWrapper> {
+        self.program.use_()?;
         Renderer::rig_one_va(&self.program, "a_position", 3, 6, 0)?;
         Renderer::rig_one_va(&self.program, "a_normal", 3, 6, 3)?;
         Ok(())
