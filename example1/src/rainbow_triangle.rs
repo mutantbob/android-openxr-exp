@@ -139,20 +139,28 @@ impl<'a> Renderer<'a> {
                 &inverse_view_matrix, //
             );
 
-            let model = xr_matrix4x4f_create_translation(0.0, 0.0, -0.5);
-            let model = xr_matrix4x4f_multiply(&model, &rotation_matrix);
-            xr_matrix4x4f_multiply(&pv, &model)
+            pv
         };
 
-        if true {
-            self.paint_color_triangle(&matrix)
-        } else {
-            //self.suzanne.vertex_array.bind()?;
-            // unsafe { gl::BindVertexArray(0) };
-            self.suzanne.phong.draw(
+        {
+            let model = xr_matrix4x4f_create_translation(1.0, 0.0, -2.0);
+            let model = xr_matrix4x4f_multiply(&model, &rotation_matrix);
+            self.paint_color_triangle(&matrix, &model)?;
+        }
+
+        {
+            let upright = matrix_rotation_about_x(-FRAC_PI_2);
+            let translate = xr_matrix4x4f_create_translation(-1.0, -0.5, -2.0);
+            let scale = xr_matrix4x4f_create_scale(0.5, 0.5, 0.5);
+            let model = scale;
+            let model = xr_matrix4x4f_multiply(&upright, &model);
+            let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);
+            let model = xr_matrix4x4f_multiply(&translate, &model);
+            let identity = Default::default();
+            self.suzanne.draw(
                 &matrix,
-                &XrMatrix4x4f::default(),
-                &XrMatrix4x4f::default(),
+                &identity,
+                &model,
                 &[0.0, 1.0, 0.0],
                 &[0.0, 0.0, 1.0],
                 self.suzanne.index_count(),
@@ -160,15 +168,21 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    fn paint_color_triangle(&self, matrix: &[f32; 16]) -> Result<(), GLErrorWrapper> {
+    fn paint_color_triangle(
+        &self,
+        pv_matrix: &[f32; 16],
+        model: &XrMatrix4x4f,
+    ) -> Result<(), GLErrorWrapper> {
         let program = &self.program.program;
         program.use_().unwrap();
 
-        self.program.set_params(matrix);
+        let matrix = xr_matrix4x4f_multiply(pv_matrix, model);
+
+        self.program.set_params(&matrix);
 
         if let Ok(location) = program.get_uniform_location("matrix") {
             //log::debug!("matrix location {}", location);
-            program.set_mat4u(location as GLint, matrix).unwrap();
+            program.set_mat4u(location as GLint, &matrix).unwrap();
         }
 
         self.buffers.bind()?;
