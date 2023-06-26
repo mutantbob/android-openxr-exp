@@ -1,4 +1,4 @@
-use gl::types::{GLchar, GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
+use gl::types::{GLchar, GLenum, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint, GLushort};
 use std::ffi::{c_void, CString};
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
@@ -93,17 +93,17 @@ impl<T> Ownership<T> {
 
 //
 
-pub trait BufferType {
+pub trait BufferTarget {
     const TARGET: GLenum;
 }
 
 pub struct ArrayBufferType {}
-impl BufferType for ArrayBufferType {
+impl BufferTarget for ArrayBufferType {
     const TARGET: GLenum = gl::ARRAY_BUFFER;
 }
 
 pub struct ElementArrayBufferType {}
-impl BufferType for ElementArrayBufferType {
+impl BufferTarget for ElementArrayBufferType {
     const TARGET: GLenum = gl::ELEMENT_ARRAY_BUFFER;
 }
 
@@ -163,7 +163,7 @@ impl<'a, B, T> Drop for Buffer<'a, B, T> {
     }
 }
 
-impl<'a, B: BufferType, T> Buffer<'a, B, T> {
+impl<'a, B: BufferTarget, T> Buffer<'a, B, T> {
     pub fn load(&mut self, values: &'a [T]) -> Result<(), GLErrorWrapper> {
         self.bind()?;
         let byte_count: GLsizeiptr = values.len() as GLsizeiptr * size_of::<T>() as GLsizeiptr;
@@ -512,6 +512,24 @@ impl Drop for Texture {
             Ownership::Borrowed(_) | Ownership::None => {}
         }
     }
+}
+
+//
+
+pub trait GLBufferType {
+    const TYPE_CODE: GLenum;
+}
+
+impl GLBufferType for GLfloat {
+    const TYPE_CODE: GLenum = gl::FLOAT;
+}
+
+impl GLBufferType for u8 {
+    const TYPE_CODE: GLenum = gl::UNSIGNED_BYTE;
+}
+
+impl GLBufferType for GLushort {
+    const TYPE_CODE: GLenum = gl::UNSIGNED_SHORT;
 }
 
 /// # Safety

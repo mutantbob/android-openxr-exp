@@ -1,7 +1,7 @@
 use crate::flat_color_shader::FlatColorShader;
 use crate::gl_fancy::{BoundBuffers, BoundBuffersMut, GPUState, VertexBufferBundle};
 use crate::gl_helper;
-use crate::gl_helper::{explode_if_gl_error, GLErrorWrapper, Program};
+use crate::gl_helper::{explode_if_gl_error, GLBufferType, GLErrorWrapper, Program};
 use crate::linear::{
     xr_matrix4x4f_create_projection_fov, xr_matrix4x4f_create_scale,
     xr_matrix4x4f_create_translation, xr_matrix4x4f_create_translation_rotation_scale,
@@ -20,7 +20,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Renderer<'a> {
     pub program: FlatColorShader,
-    pub buffers: VertexBufferBundle<'a>,
+    pub buffers: VertexBufferBundle<'a, GLfloat, u8>,
     pub indices_len: usize,
     pub suzanne: Suzanne,
 }
@@ -31,38 +31,23 @@ impl<'a> Renderer<'a> {
 
         program.program.use_()?;
 
-        let mut buffers = VertexBufferBundle::<'static>::new()?;
+        let mut buffers = VertexBufferBundle::<'static, GLfloat, u8>::new()?;
         let indices_len = {
             let bindings = buffers.bind_mut(gpu_state)?;
-            if false {
-                Self::configure_vertex_attributes(&bindings, &program.program, 3)?;
+            Self::configure_vertex_attributes(&bindings, &program.program, 2)?;
 
-                bindings.vertex_buffer.load(&crate::suzanne::XYZABC)?;
+            const COLOR_TRIANGLE: [GLfloat; 3 * 5] = [
+                -0.5, -0.5, 0.0, 1.0, 0.0, //
+                0.0, 0.5, 0.0, 0.0, 1.0, //
+                0.5, -0.5, 1.0, 0.0, 0.0,
+            ];
+            bindings.vertex_buffer.load(&COLOR_TRIANGLE)?;
 
-                let indices = &crate::suzanne::TRIANGLE_INDICES;
-                bindings.index_buffer.load(indices)?;
-                indices.len()
-            } else {
-                Self::configure_vertex_attributes(&bindings, &program.program, 2)?;
-
-                const COLOR_TRIANGLE: [GLfloat; 3 * 5] = [
-                    -0.5, -0.5, 0.0, 1.0, 0.0, //
-                    0.0, 0.5, 0.0, 0.0, 1.0, //
-                    0.5, -0.5, 1.0, 0.0, 0.0,
-                ];
-                bindings.vertex_buffer.load(&COLOR_TRIANGLE)?;
-
-                static INDICES: [u16; 3] = [0u16, 1, 2];
-                let indices = &INDICES;
-                bindings.index_buffer.load(indices)?;
-                indices.len()
-            }
+            static INDICES: [u8; 3] = [0, 1, 2];
+            let indices = &INDICES;
+            bindings.index_buffer.load(indices)?;
+            indices.len()
         };
-
-        unsafe {
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-        }
 
         let rval = Renderer {
             buffers,
@@ -188,12 +173,7 @@ impl<'a> Renderer<'a> {
 
         let binding = self.buffers.bind(gpu_state)?;
 
-        binding.draw_elements(
-            gl::TRIANGLES,
-            self.indices_len as i32,
-            gl::UNSIGNED_SHORT,
-            unsafe { gl_helper::gl_offset_for::<GLushort>(0) },
-        )?;
+        binding.draw_elements(gl::TRIANGLES, self.indices_len as i32, 0)?;
 
         drop(binding);
 
@@ -226,8 +206,8 @@ impl<'a> Renderer<'a> {
         explode_if_gl_error()
     }
 
-    fn configure_vertex_attributes(
-        buffers: &BoundBuffersMut,
+    fn configure_vertex_attributes<AT: GLBufferType, IT>(
+        buffers: &BoundBuffersMut<AT, IT>,
         program: &Program,
         xyz_width: i32,
     ) -> Result<(), GLErrorWrapper> {
@@ -293,7 +273,7 @@ pub fn matrix_rotation_about_x(theta: f32) -> [f32; 16] {
 
 pub struct Suzanne {
     phong: SunPhongShader,
-    buffers: VertexBufferBundle<'static>,
+    buffers: VertexBufferBundle<'static, GLfloat, GLushort>,
     index_count: GLsizei,
 }
 
@@ -358,10 +338,10 @@ impl Suzanne {
     }
 }
 
-impl GeometryBuffer for Suzanne {
-    fn activate<'a>(&'a self, gpu_state: &'a mut GPUState) -> BoundBuffers<'a> {
+impl GeometryBuffer<GLfloat, GLushort> for Suzanne {
+    fn activate<'a>(&'a self, gpu_state: &'a mut GPUState) -> BoundBuffers<'a, GLfloat, GLushort> {
         self.buffers.bind(gpu_state).unwrap()
     }
 
-    fn deactivate(&self, _droppable: BoundBuffers) {}
+    fn deactivate(&self, _droppable: BoundBuffers<GLfloat, GLushort>) {}
 }

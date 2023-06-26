@@ -1,11 +1,11 @@
 use crate::gl_fancy::{BoundBuffers, GPUState};
-use crate::gl_helper::{explode_if_gl_error, gl_offset_for, GLErrorWrapper, Program};
+use crate::gl_helper::{GLBufferType, GLErrorWrapper, Program};
 use crate::linear::XrMatrix4x4f;
-use gl::types::{GLint, GLsizei, GLushort};
+use gl::types::{GLint, GLsizei};
 
-pub trait GeometryBuffer {
-    fn activate<'a>(&'a self, gpu_state: &'a mut GPUState) -> BoundBuffers<'a>;
-    fn deactivate(&self, bound_buffers: BoundBuffers);
+pub trait GeometryBuffer<AT, IT> {
+    fn activate<'a>(&'a self, gpu_state: &'a mut GPUState) -> BoundBuffers<'a, AT, IT>;
+    fn deactivate(&self, bound_buffers: BoundBuffers<AT, IT>);
 }
 
 //
@@ -50,14 +50,14 @@ impl SunPhongShader {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn draw(
+    pub fn draw<AT, IT: GLBufferType>(
         &self,
         projection: &XrMatrix4x4f,
         view: &XrMatrix4x4f,
         model: &XrMatrix4x4f,
         sun_direction: &[f32; 3],
         color: &[f32; 3],
-        buffers: &dyn GeometryBuffer,
+        buffers: &dyn GeometryBuffer<AT, IT>,
         n_indices: GLsizei,
         gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
@@ -72,10 +72,7 @@ impl SunPhongShader {
 
         let bindings = buffers.activate(gpu_state);
 
-        log::debug!("drawElements");
-        bindings.draw_elements(gl::TRIANGLES, n_indices, gl::UNSIGNED_SHORT, unsafe {
-            gl_offset_for::<GLushort>(0)
-        })?;
+        bindings.draw_elements(gl::TRIANGLES, n_indices, 0)?;
 
         // unbind
 
@@ -102,10 +99,13 @@ impl SunPhongShader {
         )
     }
 
-    pub fn rig_attribute_arrays(&self, binding: &BoundBuffers) -> Result<(), GLErrorWrapper> {
+    pub fn rig_attribute_arrays<AT: GLBufferType, IT: GLBufferType>(
+        &self,
+        binding: &BoundBuffers<AT, IT>,
+    ) -> Result<(), GLErrorWrapper> {
         self.program.use_()?;
-        binding.rig_one_attribute_by_name(&self.program, "a_position", 3, 6, 0)?;
-        binding.rig_one_attribute_by_name(&self.program, "a_normal", 3, 6, 3)?;
+        binding.rig_one_attribute_by_name::<AT>(&self.program, "a_position", 3, 6, 0)?;
+        binding.rig_one_attribute_by_name::<AT>(&self.program, "a_normal", 3, 6, 3)?;
         // Renderer::rig_one_va(&self.program, "a_position", 3, 6, 0)?;
         // Renderer::rig_one_va(&self.program, "a_normal", 3, 6, 3)?;
         Ok(())
