@@ -1,15 +1,14 @@
 use crate::flat_color_shader::FlatColorShader;
-use crate::gl_fancy::{BoundBuffers, BoundBuffersMut, GPUState, VertexBufferBundle};
-use crate::gl_helper;
-use crate::gl_helper::{explode_if_gl_error, GLBufferType, GLErrorWrapper, Program};
-use crate::linear::{
+use crate::sun_phong_shader::{GeometryBuffer, SunPhongShader};
+use gl::types::{GLfloat, GLint, GLsizei, GLushort};
+use gl_thin::gl_fancy::{BoundBuffers, BoundBuffersMut, GPUState, VertexBufferBundle};
+use gl_thin::gl_helper::{self, explode_if_gl_error, GLBufferType, GLErrorWrapper, Program};
+use gl_thin::linear::{
     xr_matrix4x4f_create_projection_fov, xr_matrix4x4f_create_scale,
     xr_matrix4x4f_create_translation, xr_matrix4x4f_create_translation_rotation_scale,
     xr_matrix4x4f_identity, xr_matrix4x4f_invert_rigid_body, xr_matrix4x4f_multiply,
     xr_matrix4x4f_transform_vector3f, GraphicsAPI, XrFovf, XrMatrix4x4f, XrQuaternionf, XrVector3f,
 };
-use crate::sun_phong_shader::{GeometryBuffer, SunPhongShader};
-use gl::types::{GLfloat, GLint, GLsizei, GLushort};
 use openxr_sys::Time;
 use std::error::Error;
 use std::f32::consts::{FRAC_PI_2, TAU};

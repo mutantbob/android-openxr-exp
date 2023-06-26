@@ -3,9 +3,9 @@
 // and
 // android-activity's examples-na-winit-glutin
 
-use crate::gl_helper::initialize_gl_using_egli;
 use android_activity::AndroidApp;
 use drawcore::ActiveRenderer;
+use gl_thin::gl_helper::initialize_gl_using_egli;
 use std::ops::Add;
 use std::time::{Duration, Instant};
 use winit::event::{Event, WindowEvent};
@@ -13,13 +13,7 @@ use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindo
 use winit::platform::android::EventLoopBuilderExtAndroid;
 
 pub mod drawcore;
-pub mod errors;
 pub mod flat_color_shader;
-pub mod gl_fancy;
-pub mod gl_helper;
-pub mod kludges;
-pub mod linear;
-pub mod openxr_helpers;
 pub mod rainbow_triangle;
 pub mod sun_phong_shader;
 pub mod suzanne;

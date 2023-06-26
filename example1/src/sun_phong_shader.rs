@@ -1,7 +1,7 @@
-use crate::gl_fancy::{BoundBuffers, GPUState};
-use crate::gl_helper::{GLBufferType, GLErrorWrapper, Program};
-use crate::linear::XrMatrix4x4f;
 use gl::types::{GLint, GLsizei};
+use gl_thin::gl_fancy::{BoundBuffers, GPUState};
+use gl_thin::gl_helper::{GLBufferType, GLErrorWrapper, Program};
+use gl_thin::linear::XrMatrix4x4f;
 
 pub trait GeometryBuffer<AT, IT> {
     fn activate<'a>(&'a self, gpu_state: &'a mut GPUState) -> BoundBuffers<'a, AT, IT>;

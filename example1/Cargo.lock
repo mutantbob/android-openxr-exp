@@ -336,6 +336,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "gl-thin"
+version = "0.1.0"
+dependencies = [
+ "egli",
+ "gl",
+ "itertools",
+ "log",
+ "openxr",
+ "openxr-sys",
+]
+
+[[package]]
 name = "gl_generator"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -377,6 +389,7 @@ dependencies = [
  "android_logger",
  "egli",
  "gl",
+ "gl-thin",
  "glutin",
  "itertools",
  "log",

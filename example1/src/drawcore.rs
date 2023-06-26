@@ -1,14 +1,14 @@
-use crate::errors::XrErrorWrapped;
-use crate::gl_fancy::GPUState;
-use crate::gl_helper::{explode_if_gl_error, FrameBuffer, GLErrorWrapper, Texture};
-use crate::linear::{
-    xr_matrix4x4f_create_translation_rotation_scale, xr_matrix4x4f_invert_rigid_body, XrMatrix4x4f,
-    XrQuaternionf, XrVector3f,
-};
-use crate::openxr_helpers::{Backend, OpenXRComponent};
 use crate::rainbow_triangle::Renderer;
 use crate::Scene;
 use gl::types::GLsizei;
+use gl_thin::errors::XrErrorWrapped;
+use gl_thin::gl_fancy::GPUState;
+use gl_thin::gl_helper::{explode_if_gl_error, FrameBuffer, GLErrorWrapper, Texture};
+use gl_thin::linear::{
+    xr_matrix4x4f_create_translation_rotation_scale, xr_matrix4x4f_invert_rigid_body, XrMatrix4x4f,
+    XrQuaternionf, XrVector3f,
+};
+use gl_thin::openxr_helpers::{Backend, OpenXRComponent};
 use glutin::config::{ConfigTemplate, ConfigTemplateBuilder, GlConfig};
 use glutin::context::{AsRawContext, ContextAttributesBuilder, RawContext};
 use glutin::display::{AsRawDisplay, Display, DisplayApiPreference, GlDisplay, RawDisplay};

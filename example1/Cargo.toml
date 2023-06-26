@@ -17,6 +17,7 @@ egli="*"
 winit = "*"
 raw-window-handle = "*"
 itertools = "*"
+gl-thin = { path="../gl-thin"}
 
 
 [lib]

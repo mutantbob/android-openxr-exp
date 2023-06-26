@@ -1,0 +1,14 @@
+[package]
+name = "gl-thin"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log="*"
+openxr = { version = "*", features=["linked"] }
+openxr-sys = "*"
+gl="*"
+egli="*"
+itertools = "*"

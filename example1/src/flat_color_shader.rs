@@ -1,5 +1,5 @@
-use crate::gl_helper::{GLErrorWrapper, Program};
 use gl::types::{GLint, GLuint};
+use gl_thin::gl_helper::{GLErrorWrapper, Program};
 
 pub struct FlatColorShader {
     pub program: Program,
