@@ -123,6 +123,10 @@ impl VertexArray {
         unsafe { gl::BindVertexArray(self.0) }
         explode_if_gl_error()
     }
+
+    pub fn borrow_raw(&self) -> GLuint {
+        self.0
+    }
 }
 
 impl Drop for VertexArray {
@@ -178,6 +182,10 @@ impl<'a, B: BufferType, T> Buffer<'a, B, T> {
     pub fn bind(&self) -> Result<(), GLErrorWrapper> {
         unsafe { gl::BindBuffer(B::TARGET, self.handle) };
         explode_if_gl_error()
+    }
+
+    pub fn borrow_raw(&self) -> GLuint {
+        self.handle
     }
 }
 

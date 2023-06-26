@@ -1,11 +1,11 @@
+use crate::gl_fancy::{BoundBuffers, GPUState};
 use crate::gl_helper::{explode_if_gl_error, gl_offset_for, GLErrorWrapper, Program};
 use crate::linear::XrMatrix4x4f;
-use crate::rainbow_triangle::Renderer;
-use gl::types::{GLfloat, GLint, GLsizei, GLushort};
+use gl::types::{GLint, GLsizei, GLushort};
 
 pub trait GeometryBuffer {
-    fn activate(&self);
-    fn deactivate(&self);
+    fn activate<'a>(&'a self, gpu_state: &'a mut GPUState) -> BoundBuffers<'a>;
+    fn deactivate(&self, bound_buffers: BoundBuffers);
 }
 
 //
@@ -59,6 +59,7 @@ impl SunPhongShader {
         color: &[f32; 3],
         buffers: &dyn GeometryBuffer,
         n_indices: GLsizei,
+        gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
         self.program.use_()?;
 
@@ -69,22 +70,17 @@ impl SunPhongShader {
         self.set_sun_direction(sun_direction)?;
         self.set_color(color)?;
 
-        buffers.activate();
+        let bindings = buffers.activate(gpu_state);
 
+        log::debug!("drawElements");
+        bindings.draw_elements(gl::TRIANGLES, n_indices, gl::UNSIGNED_SHORT, unsafe {
+            gl_offset_for::<GLushort>(0)
+        })?;
+
+        // unbind
+
+        buffers.deactivate(bindings);
         unsafe {
-            gl::DrawElements(
-                gl::TRIANGLES,
-                n_indices,
-                gl::UNSIGNED_SHORT,
-                gl_offset_for::<GLushort>(0),
-            );
-            explode_if_gl_error()?;
-
-            // unbind
-
-            buffers.deactivate();
-            // gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-            // gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::DisableVertexAttribArray(self.sal_normal);
             gl::DisableVertexAttribArray(self.sal_position);
         }
@@ -106,10 +102,12 @@ impl SunPhongShader {
         )
     }
 
-    pub fn rig_attribute_arrays(&self) -> Result<(), GLErrorWrapper> {
+    pub fn rig_attribute_arrays(&self, binding: &BoundBuffers) -> Result<(), GLErrorWrapper> {
         self.program.use_()?;
-        Renderer::rig_one_va(&self.program, "a_position", 3, 6, 0)?;
-        Renderer::rig_one_va(&self.program, "a_normal", 3, 6, 3)?;
+        binding.rig_one_attribute_by_name(&self.program, "a_position", 3, 6, 0)?;
+        binding.rig_one_attribute_by_name(&self.program, "a_normal", 3, 6, 3)?;
+        // Renderer::rig_one_va(&self.program, "a_position", 3, 6, 0)?;
+        // Renderer::rig_one_va(&self.program, "a_normal", 3, 6, 3)?;
         Ok(())
     }
 

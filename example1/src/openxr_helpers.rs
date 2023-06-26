@@ -1,4 +1,5 @@
 use crate::errors::{Wrappable, XrErrorWrapped};
+use crate::gl_fancy::GPUState;
 use crate::kludges::{AndroidGLESCreateInfo, AndroidOpenGLES};
 use gl::types::GLint;
 use itertools::izip;
@@ -289,13 +290,15 @@ impl OpenXRComponent {
 
     pub fn paint_vr_multiview(
         &mut self,
-        paint_one_view: impl Fn(
+        mut paint_one_view: impl FnMut(
             &View,
             &ViewConfigurationView,
             Time,
             <Backend as Graphics>::SwapchainImage,
+            &mut GPUState,
         ),
         view_configuration_type: ViewConfigurationType,
+        gpu_state: &mut GPUState,
     ) -> Result<(), XrErrorWrapped> {
         let frame_state = self
             .frame_waiter
@@ -347,7 +350,7 @@ impl OpenXRComponent {
 
             let color_buffer = sci[buffer_index as usize];
 
-            paint_one_view(view_i, vcv, predicted_display_time, color_buffer);
+            paint_one_view(view_i, vcv, predicted_display_time, color_buffer, gpu_state);
 
             if let Err(result) = swapchain.release_image() {
                 malfunctions.push(XrErrorWrapped::build(

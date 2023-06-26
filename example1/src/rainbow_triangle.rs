@@ -1,10 +1,7 @@
 use crate::flat_color_shader::FlatColorShader;
-use crate::gl_fancy::VertexBufferBundle;
+use crate::gl_fancy::{BoundBuffers, BoundBuffersMut, GPUState, VertexBufferBundle};
 use crate::gl_helper;
-use crate::gl_helper::{
-    explode_if_gl_error, ArrayBufferType, Buffer, ElementArrayBufferType, GLErrorWrapper, Program,
-    VertexArray,
-};
+use crate::gl_helper::{explode_if_gl_error, GLErrorWrapper, Program};
 use crate::linear::{
     xr_matrix4x4f_create_projection_fov, xr_matrix4x4f_create_scale,
     xr_matrix4x4f_create_translation, xr_matrix4x4f_create_translation_rotation_scale,
@@ -12,10 +9,10 @@ use crate::linear::{
     xr_matrix4x4f_transform_vector3f, GraphicsAPI, XrFovf, XrMatrix4x4f, XrQuaternionf, XrVector3f,
 };
 use crate::sun_phong_shader::{GeometryBuffer, SunPhongShader};
-use gl::types::{GLfloat, GLint, GLsizei, GLuint, GLushort};
+use gl::types::{GLfloat, GLint, GLsizei, GLushort};
 use openxr_sys::Time;
 use std::error::Error;
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI, TAU};
+use std::f32::consts::{FRAC_PI_2, TAU};
 use std::mem::size_of;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -29,36 +26,37 @@ pub struct Renderer<'a> {
 }
 
 impl<'a> Renderer<'a> {
-    pub fn new() -> Result<Self, Box<dyn Error>> {
+    pub fn new(gpu_state: &mut GPUState) -> Result<Self, Box<dyn Error>> {
         let program = FlatColorShader::new()?;
 
         program.program.use_()?;
 
-        let mut buffers = VertexBufferBundle::new()?;
-        buffers.bind()?;
+        let mut buffers = VertexBufferBundle::<'static>::new()?;
+        let indices_len = {
+            let bindings = buffers.bind_mut(gpu_state)?;
+            if false {
+                Self::configure_vertex_attributes(&bindings, &program.program, 3)?;
 
-        let indices_len = if false {
-            Self::configure_vertex_attributes(&buffers, &program.program, 3)?;
+                bindings.vertex_buffer.load(&crate::suzanne::XYZABC)?;
 
-            buffers.vertex_buffer.load(&crate::suzanne::XYZABC)?;
+                let indices = &crate::suzanne::TRIANGLE_INDICES;
+                bindings.index_buffer.load(indices)?;
+                indices.len()
+            } else {
+                Self::configure_vertex_attributes(&bindings, &program.program, 2)?;
 
-            let indices = &crate::suzanne::TRIANGLE_INDICES;
-            buffers.index_buffer.load(indices)?;
-            indices.len()
-        } else {
-            Self::configure_vertex_attributes(&buffers, &program.program, 2)?;
+                const COLOR_TRIANGLE: [GLfloat; 3 * 5] = [
+                    -0.5, -0.5, 0.0, 1.0, 0.0, //
+                    0.0, 0.5, 0.0, 0.0, 1.0, //
+                    0.5, -0.5, 1.0, 0.0, 0.0,
+                ];
+                bindings.vertex_buffer.load(&COLOR_TRIANGLE)?;
 
-            const COLOR_TRIANGLE: [GLfloat; 3 * 5] = [
-                -0.5, -0.5, 0.0, 1.0, 0.0, //
-                0.0, 0.5, 0.0, 0.0, 1.0, //
-                0.5, -0.5, 1.0, 0.0, 0.0,
-            ];
-            buffers.vertex_buffer.load(&COLOR_TRIANGLE)?;
-
-            static INDICES: [u16; 3] = [0u16, 1, 2];
-            let indices = &INDICES;
-            buffers.index_buffer.load(indices)?;
-            indices.len()
+                static INDICES: [u16; 3] = [0u16, 1, 2];
+                let indices = &INDICES;
+                bindings.index_buffer.load(indices)?;
+                indices.len()
+            }
         };
 
         unsafe {
@@ -70,7 +68,7 @@ impl<'a> Renderer<'a> {
             buffers,
             indices_len,
             program,
-            suzanne: Suzanne::new()?,
+            suzanne: Suzanne::new(gpu_state)?,
         };
 
         Ok(rval)
@@ -82,6 +80,7 @@ impl<'a> Renderer<'a> {
         rotation: &XrQuaternionf,
         translation: &XrVector3f,
         _time: Time,
+        gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
         // building the uniforms
 
@@ -133,29 +132,29 @@ impl<'a> Renderer<'a> {
                 log::debug!("transformed {:?}", xyz);
             }
 
-            let pv = xr_matrix4x4f_multiply(
+            xr_matrix4x4f_multiply(
                 //
                 &projection_matrix,   //
                 &inverse_view_matrix, //
-            );
-
-            pv
+            )
         };
 
         {
             let model = xr_matrix4x4f_create_translation(1.0, 0.0, -2.0);
             let model = xr_matrix4x4f_multiply(&model, &rotation_matrix);
-            self.paint_color_triangle(&matrix, &model)?;
+            self.paint_color_triangle(&matrix, &model, gpu_state)?;
         }
 
         {
-            let upright = matrix_rotation_about_x(-FRAC_PI_2);
-            let translate = xr_matrix4x4f_create_translation(-1.0, -0.5, -2.0);
-            let scale = xr_matrix4x4f_create_scale(0.5, 0.5, 0.5);
-            let model = scale;
-            let model = xr_matrix4x4f_multiply(&upright, &model);
-            let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);
-            let model = xr_matrix4x4f_multiply(&translate, &model);
+            let model = {
+                let upright = matrix_rotation_about_x(-FRAC_PI_2);
+                let translate = xr_matrix4x4f_create_translation(-1.0, -0.5, -2.0);
+                let scale = xr_matrix4x4f_create_scale(0.5, 0.5, 0.5);
+                let model = scale;
+                let model = xr_matrix4x4f_multiply(&upright, &model);
+                let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);
+                xr_matrix4x4f_multiply(&translate, &model)
+            };
             let identity = xr_matrix4x4f_identity();
             self.suzanne.draw(
                 &matrix,
@@ -164,6 +163,7 @@ impl<'a> Renderer<'a> {
                 &[0.0, 1.0, 0.0],
                 &[0.0, 0.0, 1.0],
                 self.suzanne.index_count(),
+                gpu_state,
             )
         }
     }
@@ -172,6 +172,7 @@ impl<'a> Renderer<'a> {
         &self,
         pv_matrix: &[f32; 16],
         model: &XrMatrix4x4f,
+        gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
         let program = &self.program.program;
         program.use_().unwrap();
@@ -185,23 +186,21 @@ impl<'a> Renderer<'a> {
             program.set_mat4u(location as GLint, &matrix).unwrap();
         }
 
-        self.buffers.bind()?;
+        let binding = self.buffers.bind(gpu_state)?;
 
-        unsafe {
-            //Self::configure_vertex_attributes(&self.program);
+        binding.draw_elements(
+            gl::TRIANGLES,
+            self.indices_len as i32,
+            gl::UNSIGNED_SHORT,
+            unsafe { gl_helper::gl_offset_for::<GLushort>(0) },
+        )?;
 
-            gl::DrawElements(
-                gl::TRIANGLES,
-                self.indices_len as i32,
-                gl::UNSIGNED_SHORT,
-                gl_helper::gl_offset_for::<GLushort>(0),
-            );
-            explode_if_gl_error()?;
-            // too lazy to unbind
-        }
+        drop(binding);
+
         Ok(())
     }
 
+    #[deprecated]
     pub fn rig_one_va(
         program: &Program,
         name: &str,
@@ -228,13 +227,16 @@ impl<'a> Renderer<'a> {
     }
 
     fn configure_vertex_attributes(
-        buffers: &VertexBufferBundle,
+        buffers: &BoundBuffersMut,
         program: &Program,
         xyz_width: i32,
     ) -> Result<(), GLErrorWrapper> {
         let stride = xyz_width + 3;
         buffers.rig_one_attribute_by_name(program, "position", xyz_width, stride, 0)?;
         buffers.rig_one_attribute_by_name(program, "color", 3, stride, xyz_width)?;
+        /*        Self::rig_one_va(program, "position", xyz_width, stride, 0)?;
+                Self::rig_one_va(program, "color", 3, stride, xyz_width)?;
+        */
         Ok(())
     }
 }
@@ -298,26 +300,28 @@ pub struct Suzanne {
 impl Suzanne {}
 
 impl Suzanne {
-    pub fn new() -> Result<Self, GLErrorWrapper> {
+    pub fn new(gpu_state: &mut GPUState) -> Result<Self, GLErrorWrapper> {
         let mut buffers = VertexBufferBundle::new()?;
-        buffers.bind()?;
+        let binding = buffers.bind_mut(gpu_state)?;
 
         let xyzabc = &crate::suzanne::XYZABC;
         /*let xyzabc = &[
             -0.5, 0.5, 0.0, 0.0, 0.0, 1.0, 0.5, 0.5, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, 0.0, 0.0, 0.0,
             1.0,
         ];*/
-        buffers.vertex_buffer.load(xyzabc)?;
+        binding.vertex_buffer.load(xyzabc)?;
 
         let indices = &crate::suzanne::TRIANGLE_INDICES;
         // let indices = &[0, 1, 2];
-        buffers.index_buffer.load(indices)?;
+        binding.index_buffer.load(indices)?;
 
         let phong = SunPhongShader::new()?;
         if true {
-            buffers.bind()?; // is this redundant ? XXX
-            phong.rig_attribute_arrays()?;
+            // buffers.bind_primitive()?; // is this redundant ? XXX
+            phong.rig_attribute_arrays(&binding.plain())?;
         }
+
+        drop(binding);
 
         Ok(Self {
             phong,
@@ -330,6 +334,7 @@ impl Suzanne {
         self.index_count
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn draw(
         &self,
         projection: &XrMatrix4x4f,
@@ -338,6 +343,7 @@ impl Suzanne {
         sun_direction: &[f32; 3],
         color: &[f32; 3],
         n_indices: GLsizei,
+        gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
         self.phong.draw(
             projection,
@@ -347,20 +353,15 @@ impl Suzanne {
             color,
             self,
             n_indices,
+            gpu_state,
         )
     }
 }
 
 impl GeometryBuffer for Suzanne {
-    fn activate(&self) {
-        self.buffers.bind();
+    fn activate<'a>(&'a self, gpu_state: &'a mut GPUState) -> BoundBuffers<'a> {
+        self.buffers.bind(gpu_state).unwrap()
     }
 
-    fn deactivate(&self) {
-        unsafe {
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-            gl::BindVertexArray(0);
-        }
-    }
+    fn deactivate(&self, _droppable: BoundBuffers) {}
 }

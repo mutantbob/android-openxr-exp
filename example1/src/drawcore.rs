@@ -1,4 +1,5 @@
 use crate::errors::XrErrorWrapped;
+use crate::gl_fancy::GPUState;
 use crate::gl_helper::{explode_if_gl_error, FrameBuffer, GLErrorWrapper, Texture};
 use crate::linear::{
     xr_matrix4x4f_create_translation_rotation_scale, xr_matrix4x4f_invert_rigid_body, XrMatrix4x4f,
@@ -73,6 +74,7 @@ pub struct ActiveRenderer<'a> {
     pub frame_env: FrameEnv,
     pub render_state: Renderer<'a>,
     pub openxr: OpenXRComponent,
+    pub gpu_state: GPUState,
 }
 
 impl<'a> Scene for ActiveRenderer<'a> {
@@ -97,21 +99,22 @@ impl<'a> ActiveRenderer<'a> {
     pub fn new<T>(event_loop: &EventLoopWindowTarget<T>) -> Result<Self, Box<dyn Error>> {
         let (display_ptr, raw_context) = Self::build_android_egl_context(event_loop)?;
 
-        let openxr =
-            OpenXRComponent::new(display_ptr as *mut c_void, raw_context as *mut c_void).unwrap();
+        let mut gpu_state = GPUState {};
+
+        let openxr = OpenXRComponent::new(display_ptr as *mut c_void, raw_context as *mut c_void)?;
 
         let vcv0 = openxr.view_config_views[0];
         let frame_env = FrameEnv::new(
             vcv0.recommended_image_rect_width,
             vcv0.recommended_image_rect_height,
-        )
-        .unwrap();
-        let render_state = Renderer::new().unwrap();
+        )?;
+        let render_state = Renderer::new(&mut gpu_state)?;
 
         Ok(Self {
             frame_env,
             render_state,
             openxr,
+            gpu_state,
         })
     }
 
@@ -131,7 +134,7 @@ impl<'a> ActiveRenderer<'a> {
         let template = Self::config_template(raw_window_handle);
 
         let config = unsafe {
-            let configs_list: Vec<_> = glutin_display.find_configs(template).unwrap().collect();
+            let configs_list: Vec<_> = glutin_display.find_configs(template)?.collect();
             if true {
                 debug!("glutin display configs [{}]", configs_list.len());
                 for config in &configs_list {
@@ -174,7 +177,8 @@ impl<'a> ActiveRenderer<'a> {
         let lambda = |view_i: &View,
                       vcv: &ViewConfigurationView,
                       predicted_display_time,
-                      render_destination| {
+                      render_destination,
+                      gpu_state: &mut GPUState| {
             Self::paint_one_view(
                 view_i,
                 vcv,
@@ -182,12 +186,16 @@ impl<'a> ActiveRenderer<'a> {
                 &self.render_state,
                 &self.frame_env,
                 render_destination,
+                gpu_state,
             )
             .unwrap();
         };
 
-        self.openxr
-            .paint_vr_multiview(lambda, ViewConfigurationType::PRIMARY_STEREO)
+        self.openxr.paint_vr_multiview(
+            lambda,
+            ViewConfigurationType::PRIMARY_STEREO,
+            &mut self.gpu_state,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -198,6 +206,7 @@ impl<'a> ActiveRenderer<'a> {
         renderer: &Renderer,
         frame_env: &FrameEnv,
         color_buffer: <Backend as Graphics>::SwapchainImage,
+        gpu_state: &mut GPUState,
     ) -> Result<(), Box<dyn Error>> {
         let width = view_config_view.recommended_image_rect_width;
         let height = view_config_view.recommended_image_rect_height;
@@ -207,6 +216,7 @@ impl<'a> ActiveRenderer<'a> {
             &view_i.pose.orientation.into(),
             &view_i.pose.position.into(),
             time,
+            gpu_state,
         )?;
 
         Ok(())
