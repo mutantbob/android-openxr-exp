@@ -276,8 +276,6 @@ pub struct Suzanne {
     index_count: GLsizei,
 }
 
-impl Suzanne {}
-
 impl Suzanne {
     pub fn new(gpu_state: &mut GPUState) -> Result<Self, GLErrorWrapper> {
         let mut buffers = VertexBufferBundle::new()?;

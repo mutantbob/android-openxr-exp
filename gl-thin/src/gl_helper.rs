@@ -362,10 +362,19 @@ impl Program {
             Ok(rval as GLuint)
         }
     }
+
+    //
+
+    pub fn set_uniform_1i(&self, name: &str, v0: GLint) -> Result<(), GLErrorWrapper> {
+        unsafe { gl::Uniform1i(self.get_uniform_location(name)? as GLint, v0) }
+        explode_if_gl_error()
+    }
+
     pub fn set_uniform_3f(&self, name: &str, x: f32, y: f32, z: f32) -> Result<(), GLErrorWrapper> {
         unsafe { gl::Uniform3f(self.get_uniform_location(name)? as GLint, x, y, z) }
         explode_if_gl_error()
     }
+
     pub fn set_mat4(&self, location: GLint, val: &[[f32; 4]; 4]) -> Result<(), GLErrorWrapper> {
         unsafe { gl::UniformMatrix4fv(location, 1, 0, val[0].as_ptr()) }
         explode_if_gl_error()
@@ -455,6 +464,13 @@ impl Texture {
         Ok(rval)
     }
 
+    pub fn borrow(&self) -> GLuint {
+        match &self.0 {
+            Ownership::Borrowed(val) | Ownership::Owned(val) => *val,
+            Ownership::None => panic!("no value, how did we get into this state?"),
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn configure(
         &self,
@@ -487,7 +503,7 @@ impl Texture {
         explode_if_gl_error()
     }
 
-    fn bind(&self, target: GLenum) -> Result<(), GLErrorWrapper> {
+    pub fn bind(&self, target: GLenum) -> Result<(), GLErrorWrapper> {
         unsafe { gl::BindTexture(target, *self.0.unwrap()) };
         explode_if_gl_error()
     }
@@ -511,6 +527,27 @@ impl Drop for Texture {
             Ownership::Owned(handle) => unsafe { gl::DeleteTextures(1, &handle) },
             Ownership::Borrowed(_) | Ownership::None => {}
         }
+    }
+}
+
+//
+
+pub struct TextureWithTarget {
+    texture: Texture,
+    target: GLenum,
+}
+
+impl TextureWithTarget {
+    pub fn new(texture: Texture, target: GLenum) -> Self {
+        Self { texture, target }
+    }
+
+    pub fn bind(&self) -> Result<(), GLErrorWrapper> {
+        self.texture.bind(self.target)
+    }
+
+    pub fn is_texture_2d(&self) -> bool {
+        self.target == gl::TEXTURE_2D
     }
 }
 
