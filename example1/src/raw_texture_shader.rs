@@ -3,6 +3,7 @@ use gl::types::{GLint, GLsizei};
 use gl_thin::gl_fancy::GPUState;
 use gl_thin::gl_helper::{explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, Texture};
 use gl_thin::linear::XrMatrix4x4f;
+use openxr_sys::Vector3f;
 
 pub struct AlphaTextureShader {
     pub program: Program,
@@ -53,7 +54,8 @@ impl AlphaTextureShader {
         projection: &XrMatrix4x4f,
         view: &XrMatrix4x4f,
         model: &XrMatrix4x4f,
-        texture: &Texture,
+        mask: &Texture,
+        color: &[f32; 3],
         buffers: &dyn GeometryBuffer<AT, IT>,
         n_indices: GLsizei,
         gpu_state: &mut GPUState,
@@ -64,12 +66,14 @@ impl AlphaTextureShader {
         self.set_u_view(view)?;
         self.set_u_model(model)?;
 
+        self.set_color(color)?;
+
         let texture_image_unit = 0;
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0 + texture_image_unit);
         }
         explode_if_gl_error()?;
-        texture.bind(gl::TEXTURE_2D)?;
+        mask.bind(gl::TEXTURE_2D)?;
 
         self.set_texture(texture_image_unit)?;
 
@@ -90,6 +94,11 @@ impl AlphaTextureShader {
 
     fn set_texture(&self, texture_unit: u32) -> Result<(), GLErrorWrapper> {
         self.program.set_uniform_1i("tex", texture_unit as GLint)
+    }
+
+    fn set_color(&self, color: &[f32; 3]) -> Result<(), GLErrorWrapper> {
+        self.program
+            .set_uniform_3f("color", color[0], color[1], color[2])
     }
 
     fn set_u_view(&self, matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
@@ -132,10 +141,11 @@ precision highp float;
 #endif
 varying vec2 v_texCoord;
 uniform sampler2D tex;
+uniform vec3 color;
 void main()
 {{
     float alpha = texture2D(tex, v_texCoord).r;
-    gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
+    gl_FragColor = vec4(color, alpha);
 
 }}"
 }

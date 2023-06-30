@@ -171,7 +171,7 @@ impl<'a> Renderer<'a> {
                 let scale = xr_matrix4x4f_create_scale(s, s, s);
                 let model = scale;
                 // let model = xr_matrix4x4f_multiply(&upright, &model);
-                let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);
+                // let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);
                 xr_matrix4x4f_multiply(&translate, &model)
             };
             let identity = xr_matrix4x4f_identity();
@@ -446,6 +446,7 @@ impl TextMessage {
             view,
             model,
             &self.texture,
+            &[1.0, 0.5, 0.0],
             self,
             n_indices,
             gpu_state,
