@@ -404,10 +404,10 @@ impl TextMessage {
 
         program.program.use_().unwrap();
         binding
-            .rig_one_attribute(program.sal_position, 3, 4, 0)
+            .rig_one_attribute(program.sal_position, 3, 5, 0)
             .unwrap();
         binding
-            .rig_one_attribute(program.sal_tex_coord, 2, 4, 3)
+            .rig_one_attribute(program.sal_tex_coord, 2, 5, 3)
             .unwrap();
 
         drop(binding);
