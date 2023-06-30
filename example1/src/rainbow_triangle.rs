@@ -1,5 +1,5 @@
 use crate::flat_color_shader::FlatColorShader;
-use crate::raw_texture_shader::RawTextureShader;
+use crate::raw_texture_shader::AlphaTextureShader;
 use crate::sun_phong_shader::{GeometryBuffer, SunPhongShader};
 use crate::text_painting;
 use gl::types::{GLfloat, GLint, GLsizei, GLushort};
@@ -89,6 +89,13 @@ impl<'a> Renderer<'a> {
         unsafe { gl::Enable(gl::DEPTH_TEST) };
         explode_if_gl_error()?;
 
+        if true {
+            unsafe {
+                gl::Enable(gl::BLEND);
+                gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            }
+        }
+
         //
 
         let matrix = {
@@ -159,7 +166,7 @@ impl<'a> Renderer<'a> {
 
         {
             let model = {
-                let translate = xr_matrix4x4f_create_translation(0.0, -0.5, -1.0);
+                let translate = xr_matrix4x4f_create_translation(0.0, -0.5, -3.0);
                 let s = 0.2;
                 let scale = xr_matrix4x4f_create_scale(s, s, s);
                 let model = scale;
@@ -367,7 +374,7 @@ impl GeometryBuffer<GLfloat, GLushort> for Suzanne {
 //
 
 pub struct TextMessage {
-    program: RawTextureShader,
+    program: AlphaTextureShader,
     buffers: VertexBufferBundle<'static, GLfloat, GLushort>,
     index_count: GLsizei,
     texture: Texture,
@@ -400,7 +407,7 @@ impl TextMessage {
         let indices = &[0, 1, 2, 3];
         binding.index_buffer.load(indices).unwrap();
 
-        let program = RawTextureShader::new().unwrap();
+        let program = AlphaTextureShader::new().unwrap();
 
         program.program.use_().unwrap();
         binding

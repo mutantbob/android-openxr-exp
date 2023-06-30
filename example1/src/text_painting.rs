@@ -8,7 +8,7 @@ pub fn banana(width: GLint, height: GLint) -> Result<Texture, GLErrorWrapper> {
     let font = Font::try_from_bytes(include_bytes!("Montserrat-Regular.ttf"))
         .expect("failed to parse font");
 
-    let pixel_height = 40;
+    let pixel_height = 66;
     let font_size = pixel_height as f32;
     let scale = Scale {
         x: font_size,
@@ -61,7 +61,7 @@ pub fn banana(width: GLint, height: GLint) -> Result<Texture, GLErrorWrapper> {
             )
             .unwrap();
     } else {
-        let mut pixel_data = vec![99u8; (3 * width * height) as usize];
+        let mut pixel_data = vec![0u8; (3 * width * height) as usize];
         for g in glyphs {
             if let Some(bb) = g.pixel_bounding_box() {
                 g.draw(|x0, y0, v| {

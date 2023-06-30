@@ -4,7 +4,7 @@ use gl_thin::gl_fancy::GPUState;
 use gl_thin::gl_helper::{explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, Texture};
 use gl_thin::linear::XrMatrix4x4f;
 
-pub struct RawTextureShader {
+pub struct AlphaTextureShader {
     pub program: Program,
     pub sal_position: u32,
     pub sal_tex_coord: u32,
@@ -14,7 +14,7 @@ pub struct RawTextureShader {
     pub sul_tex: u32,
 }
 
-impl RawTextureShader {
+impl AlphaTextureShader {
     pub fn new() -> Result<Self, GLErrorWrapper> {
         let program = Program::compile(shader_v_src(), shader_f_src())?;
 
@@ -135,7 +135,7 @@ uniform sampler2D tex;
 void main()
 {{
     float alpha = texture2D(tex, v_texCoord).r;
-    gl_FragColor = vec4(0.0, 0.0, alpha, 1.0);
+    gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
 
 }}"
 }
