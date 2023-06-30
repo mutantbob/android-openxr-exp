@@ -1,8 +1,12 @@
 use crate::flat_color_shader::FlatColorShader;
+use crate::raw_texture_shader::RawTextureShader;
 use crate::sun_phong_shader::{GeometryBuffer, SunPhongShader};
+use crate::text_painting;
 use gl::types::{GLfloat, GLint, GLsizei, GLushort};
 use gl_thin::gl_fancy::{BoundBuffers, BoundBuffersMut, GPUState, VertexBufferBundle};
-use gl_thin::gl_helper::{self, explode_if_gl_error, GLBufferType, GLErrorWrapper, Program};
+use gl_thin::gl_helper::{
+    self, explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, Texture,
+};
 use gl_thin::linear::{
     xr_matrix4x4f_create_projection_fov, xr_matrix4x4f_create_scale,
     xr_matrix4x4f_create_translation, xr_matrix4x4f_create_translation_rotation_scale,
@@ -22,6 +26,7 @@ pub struct Renderer<'a> {
     pub buffers: VertexBufferBundle<'a, GLfloat, u8>,
     pub indices_len: usize,
     pub suzanne: Suzanne,
+    pub text_message: TextMessage,
 }
 
 impl<'a> Renderer<'a> {
@@ -53,6 +58,7 @@ impl<'a> Renderer<'a> {
             indices_len,
             program,
             suzanne: Suzanne::new(gpu_state)?,
+            text_message: TextMessage::new(gpu_state)?,
         };
 
         Ok(rval)
@@ -147,6 +153,26 @@ impl<'a> Renderer<'a> {
                 &[0.0, 1.0, 0.0],
                 &[0.0, 0.0, 1.0],
                 self.suzanne.index_count(),
+                gpu_state,
+            )?;
+        }
+
+        {
+            let model = {
+                let translate = xr_matrix4x4f_create_translation(0.0, -0.5, -1.0);
+                let s = 0.2;
+                let scale = xr_matrix4x4f_create_scale(s, s, s);
+                let model = scale;
+                // let model = xr_matrix4x4f_multiply(&upright, &model);
+                let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);
+                xr_matrix4x4f_multiply(&translate, &model)
+            };
+            let identity = xr_matrix4x4f_identity();
+            self.text_message.draw(
+                &matrix,
+                &identity,
+                &model,
+                self.text_message.index_count(),
                 gpu_state,
             )
         }
@@ -282,14 +308,9 @@ impl Suzanne {
         let binding = buffers.bind_mut(gpu_state)?;
 
         let xyzabc = &crate::suzanne::XYZABC;
-        /*let xyzabc = &[
-            -0.5, 0.5, 0.0, 0.0, 0.0, 1.0, 0.5, 0.5, 0.0, 0.0, 0.0, 1.0, 0.0, -0.5, 0.0, 0.0, 0.0,
-            1.0,
-        ];*/
         binding.vertex_buffer.load(xyzabc)?;
 
         let indices = &crate::suzanne::TRIANGLE_INDICES;
-        // let indices = &[0, 1, 2];
         binding.index_buffer.load(indices)?;
 
         let phong = SunPhongShader::new()?;
@@ -336,6 +357,96 @@ impl Suzanne {
 }
 
 impl GeometryBuffer<GLfloat, GLushort> for Suzanne {
+    fn activate<'a>(&'a self, gpu_state: &'a mut GPUState) -> BoundBuffers<'a, GLfloat, GLushort> {
+        self.buffers.bind(gpu_state).unwrap()
+    }
+
+    fn deactivate(&self, _droppable: BoundBuffers<GLfloat, GLushort>) {}
+}
+
+//
+
+pub struct TextMessage {
+    program: RawTextureShader,
+    buffers: VertexBufferBundle<'static, GLfloat, GLushort>,
+    index_count: GLsizei,
+    texture: Texture,
+}
+
+impl TextMessage {
+    pub fn new(gpu_state: &mut GPUState) -> Result<Self, GLErrorWrapper> {
+        let mut buffers = VertexBufferBundle::new().unwrap();
+        let binding = buffers.bind_mut(gpu_state).unwrap();
+
+        let tex_width = 256;
+        let tex_height = 64;
+        let aspect = tex_width as f32 / tex_height as f32;
+
+        let xmin: f32 = -aspect;
+        const YMIN: f32 = -1.0;
+        let xmax: f32 = aspect;
+        const YMAX: f32 = 1.0;
+        const Z: f32 = 0.0;
+        const UMIN: f32 = 0.0;
+        const UMAX: f32 = 1.0;
+        let xyuv = vec![
+            xmin, YMIN, Z, UMIN, UMAX, //
+            xmax, YMIN, Z, UMAX, UMAX, //
+            xmin, YMAX, Z, UMIN, UMIN, //
+            xmax, YMAX, Z, UMAX, UMIN, //
+        ];
+        binding.vertex_buffer.load_owned(xyuv).unwrap();
+
+        let indices = &[0, 1, 2, 3];
+        binding.index_buffer.load(indices).unwrap();
+
+        let program = RawTextureShader::new().unwrap();
+
+        program.program.use_().unwrap();
+        binding
+            .rig_one_attribute(program.sal_position, 3, 4, 0)
+            .unwrap();
+        binding
+            .rig_one_attribute(program.sal_tex_coord, 2, 4, 3)
+            .unwrap();
+
+        drop(binding);
+
+        let rval = Self {
+            program,
+            buffers,
+            index_count: indices.len() as GLsizei,
+            texture: text_painting::banana(tex_width, tex_height).unwrap(),
+        };
+        Ok(rval)
+    }
+
+    pub fn index_count(&self) -> GLsizei {
+        self.index_count
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn draw(
+        &self,
+        projection: &XrMatrix4x4f,
+        view: &[f32; 16],
+        model: &[f32; 16],
+        n_indices: GLsizei,
+        gpu_state: &mut GPUState,
+    ) -> Result<(), GLErrorWrapper> {
+        self.program.draw(
+            projection,
+            view,
+            model,
+            &self.texture,
+            self,
+            n_indices,
+            gpu_state,
+        )
+    }
+}
+
+impl GeometryBuffer<GLfloat, GLushort> for TextMessage {
     fn activate<'a>(&'a self, gpu_state: &'a mut GPUState) -> BoundBuffers<'a, GLfloat, GLushort> {
         self.buffers.bind(gpu_state).unwrap()
     }

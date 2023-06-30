@@ -137,9 +137,15 @@ impl Drop for VertexArray {
 
 //
 
+enum BufferOwnership<'a, T> {
+    Reference(&'a [T]),
+    Owned(Vec<T>),
+    None,
+}
+
 pub struct Buffer<'a, B, T> {
     handle: GLuint,
-    data: Option<&'a [T]>,
+    data: BufferOwnership<'a, T>,
     phantom_data: PhantomData<B>,
 }
 
@@ -151,7 +157,7 @@ impl<'a, B, T> Buffer<'a, B, T> {
 
         Ok(Buffer {
             handle: unsafe { rval.assume_init() },
-            data: None,
+            data: BufferOwnership::None,
             phantom_data: Default::default(),
         })
     }
@@ -175,7 +181,22 @@ impl<'a, B: BufferTarget, T> Buffer<'a, B, T> {
                 gl::STATIC_DRAW,
             )
         }
-        self.data = Some(values);
+        self.data = BufferOwnership::Reference(values);
+        explode_if_gl_error()
+    }
+
+    pub fn load_owned(&mut self, values: Vec<T>) -> Result<(), GLErrorWrapper> {
+        self.bind()?;
+        let byte_count: GLsizeiptr = values.len() as GLsizeiptr * size_of::<T>() as GLsizeiptr;
+        unsafe {
+            gl::BufferData(
+                B::TARGET,
+                byte_count,
+                values.as_ptr() as *const c_void,
+                gl::STATIC_DRAW,
+            )
+        }
+        self.data = BufferOwnership::Owned(values);
         explode_if_gl_error()
     }
 
@@ -517,6 +538,57 @@ impl Texture {
     ) -> Result<(), GLErrorWrapper> {
         let texture = *self.0.unwrap();
         unsafe { gl::FramebufferTexture2D(target, attachment, tex_target, texture, level) };
+        explode_if_gl_error()
+    }
+
+    pub fn get_width(&self) -> Result<GLint, GLErrorWrapper> {
+        self.bind(gl::TEXTURE_2D)?;
+
+        let mut rval = 0;
+        unsafe { gl::GetTexParameterIiv(gl::TEXTURE_2D, gl::TEXTURE_WIDTH, &mut rval) };
+        explode_if_gl_error()?;
+
+        Ok(rval)
+    }
+
+    pub fn get_dimensions(&self) -> Result<(GLint, GLint), GLErrorWrapper> {
+        self.bind(gl::TEXTURE_2D)?;
+
+        let mut width = 0;
+        unsafe { gl::GetTexParameterIiv(gl::TEXTURE_2D, gl::TEXTURE_WIDTH, &mut width) };
+        explode_if_gl_error()?;
+
+        let mut height = 0;
+        unsafe { gl::GetTexParameterIiv(gl::TEXTURE_2D, gl::TEXTURE_HEIGHT, &mut height) };
+        explode_if_gl_error()?;
+
+        Ok((width, height))
+    }
+
+    pub fn write_pixels<T: GLBufferType>(
+        &mut self,
+        target: GLenum,
+        level: GLint,
+        internal_format: GLint,
+        width: GLsizei,
+        height: GLsizei,
+        format: GLenum,
+        pixels: &[T],
+    ) -> Result<(), GLErrorWrapper> {
+        self.bind(target)?;
+        unsafe {
+            gl::TexImage2D(
+                target,
+                level,
+                internal_format,
+                width,
+                height,
+                0,
+                format,
+                T::TYPE_CODE,
+                pixels.as_ptr() as *const _,
+            );
+        }
         explode_if_gl_error()
     }
 }

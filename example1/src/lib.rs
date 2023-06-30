@@ -15,8 +15,10 @@ use winit::platform::android::EventLoopBuilderExtAndroid;
 pub mod drawcore;
 pub mod flat_color_shader;
 pub mod rainbow_triangle;
+pub mod raw_texture_shader;
 pub mod sun_phong_shader;
 pub mod suzanne;
+pub mod text_painting;
 
 //
 

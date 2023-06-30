@@ -437,7 +437,7 @@ pub fn projection_view_for<'a>(
 }
 
 pub struct RightHandTracker {
-    space: Space,
+    pub space: Space,
 }
 
 impl RightHandTracker {
