@@ -2,14 +2,15 @@ use gl::types::GLint;
 use gl_thin::gl_helper::{explode_if_gl_error, GLErrorWrapper, Texture};
 use rusttype::{point, Font, Scale};
 
-struct Banana {}
-
-pub fn banana(width: GLint, height: GLint) -> Result<Texture, GLErrorWrapper> {
+pub fn text_to_greyscale_texture(
+    width: GLint,
+    height: GLint,
+    font_size: f32,
+    message: &str,
+) -> Result<Texture, GLErrorWrapper> {
     let font = Font::try_from_bytes(include_bytes!("Montserrat-Regular.ttf"))
         .expect("failed to parse font");
 
-    let pixel_height = 66;
-    let font_size = pixel_height as f32;
     let scale = Scale {
         x: font_size,
         y: font_size,
@@ -17,18 +18,18 @@ pub fn banana(width: GLint, height: GLint) -> Result<Texture, GLErrorWrapper> {
 
     let offset = point(0.0, font.v_metrics(scale).ascent);
 
-    let glyphs: Vec<_> = font.layout("Hail Bob!", scale, offset).collect();
+    let glyphs: Vec<_> = font.layout(message, scale, offset).collect();
 
     if true {
         let width = glyphs
             .iter()
             .rev()
-            .map(|g| g.position().x as f32 + g.unpositioned().h_metrics().advance_width)
+            .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
             .next()
             .unwrap_or(0.0)
             .ceil() as usize;
 
-        println!("width: {}, height: {}", width, pixel_height);
+        println!("width: {}, height: {}", width, font_size);
     }
 
     // let (width, height) = target.get_dimensions()?;

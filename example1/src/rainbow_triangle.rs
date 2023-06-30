@@ -423,7 +423,13 @@ impl TextMessage {
             program,
             buffers,
             index_count: indices.len() as GLsizei,
-            texture: text_painting::banana(tex_width, tex_height).unwrap(),
+            texture: text_painting::text_to_greyscale_texture(
+                tex_width,
+                tex_height,
+                66.0,
+                "Hail Bob!",
+            )
+            .unwrap(),
         };
         Ok(rval)
     }

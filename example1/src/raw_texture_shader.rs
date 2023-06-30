@@ -3,7 +3,6 @@ use gl::types::{GLint, GLsizei};
 use gl_thin::gl_fancy::GPUState;
 use gl_thin::gl_helper::{explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, Texture};
 use gl_thin::linear::XrMatrix4x4f;
-use openxr_sys::Vector3f;
 
 pub struct AlphaTextureShader {
     pub program: Program,

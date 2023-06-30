@@ -17,7 +17,6 @@ use openxr_sys::{
     GraphicsRequirementsOpenGLESKHR, Offset2Di, Rect2Di, Time,
 };
 use std::ffi::{c_void, CStr};
-use std::slice;
 
 pub type Backend = AndroidOpenGLES;
 
