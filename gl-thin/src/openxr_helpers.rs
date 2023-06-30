@@ -7,16 +7,17 @@ use log::{debug, error, warn};
 use openxr::sys::{result_to_string, Result as XrResult, MAX_RESULT_STRING_SIZE};
 use openxr::{
     ActionSet, ApplicationInfo, Binding, CompositionLayerBase, CompositionLayerProjection, Entry,
-    Event, ExtensionSet, FormFactor, FrameStream, FrameWaiter, Graphics, Instance, Posef,
-    Quaternionf, ReferenceSpaceType, Session, SessionState, Space, Swapchain, SwapchainCreateFlags,
-    SwapchainCreateInfo, SwapchainUsageFlags, SystemId, Version, View, ViewConfigurationType,
-    ViewConfigurationView,
+    Event, ExtensionSet, FormFactor, FrameState, FrameStream, FrameWaiter, Graphics, Instance,
+    Posef, Quaternionf, ReferenceSpaceType, Session, SessionState, Space, SpaceLocation, Swapchain,
+    SwapchainCreateFlags, SwapchainCreateInfo, SwapchainUsageFlags, SystemId, Version, View,
+    ViewConfigurationType, ViewConfigurationView,
 };
 use openxr_sys::{
     CompositionLayerFlags, Duration as XrDuration, EnvironmentBlendMode, Extent2Di,
     GraphicsRequirementsOpenGLESKHR, Offset2Di, Rect2Di, Time,
 };
 use std::ffi::{c_void, CStr};
+use std::slice;
 
 pub type Backend = AndroidOpenGLES;
 
@@ -29,8 +30,7 @@ pub struct OpenXRComponent {
     pub xr_swapchain_images: Vec<Vec<<Backend as Graphics>::SwapchainImage>>,
     pub xr_swapchains: Vec<Swapchain<Backend>>,
     pub view_config_views: Vec<ViewConfigurationView>,
-
-    pub controller_space_1: Space,
+    pub controller_space_1: RightHandTracker,
     pub action_set: ActionSet,
 }
 
@@ -227,7 +227,7 @@ impl OpenXRComponent {
         };
 
         let (action_set, controller_space_1) =
-            Self::fabricate_controller_space(&instance, &xr_session).unwrap();
+            RightHandTracker::action_set_from(&instance, &xr_session)?;
 
         let thing = OpenXRComponent {
             xr_instance: instance,
@@ -244,52 +244,13 @@ impl OpenXRComponent {
         Ok(thing)
     }
 
-    pub fn fabricate_controller_space(
-        instance: &Instance,
-        xr_session: &Session<Backend>,
-    ) -> Result<(ActionSet, Space), XrResult> {
-        let action_set = instance.create_action_set("pants", "pants", 0)?;
-        let user_hand_left = instance.string_to_path("/user/hand/left")?;
-        let user_hand_right = instance.string_to_path("/user/hand/right")?;
-        let pose_action = action_set.create_action::<Posef>(
-            "hand_pose",
-            "controller 1",
-            &[user_hand_left, user_hand_right],
-        )?;
-        let left_grip_pose = instance.string_to_path("/user/hand/left/input/grip/pose")?;
-        let right_grip_pose = instance.string_to_path("/user/hand/right/input/grip/pose")?;
-        let bindings = [
-            Binding::new(&pose_action, left_grip_pose),
-            Binding::new(&pose_action, right_grip_pose),
-        ];
-        {
-            let interaction_profile =
-                instance.string_to_path("/interaction_profiles/khr/simple_controller")?;
-
-            instance.suggest_interaction_profile_bindings(interaction_profile, &bindings)?;
-        }
-
-        {
-            let interaction_profile =
-                instance.string_to_path("/interaction_profiles/oculus/touch_controller")?;
-            instance.suggest_interaction_profile_bindings(interaction_profile, &bindings)?;
-        }
-
-        let mut posef = Posef::default();
-        posef.orientation.w = 1.0;
-        let controller_space_1 =
-            pose_action.create_space(xr_session.clone(), user_hand_right, posef)?;
-
-        xr_session.attach_action_sets(&[&action_set]).unwrap();
-        Ok((action_set, controller_space_1))
-    }
-
     pub fn view_count(&self) -> usize {
         self.view_config_views.len()
     }
 
     pub fn paint_vr_multiview(
         &mut self,
+        mut before_paint: impl FnMut(&OpenXRComponent, &FrameState),
         mut paint_one_view: impl FnMut(
             &View,
             &ViewConfigurationView,
@@ -297,6 +258,7 @@ impl OpenXRComponent {
             <Backend as Graphics>::SwapchainImage,
             &mut GPUState,
         ),
+        mut after_paint: impl FnMut(&OpenXRComponent, &FrameState),
         view_configuration_type: ViewConfigurationType,
         gpu_state: &mut GPUState,
     ) -> Result<(), XrErrorWrapped> {
@@ -320,6 +282,8 @@ impl OpenXRComponent {
             .annotate_if_err(None, "failed to locate_views")?;
 
         let mut malfunctions = vec![];
+
+        before_paint(self, &frame_state);
 
         for (swapchain, sci, view_i, vcv) in izip!(
             self.xr_swapchains.iter_mut(),
@@ -362,6 +326,8 @@ impl OpenXRComponent {
             }
         }
 
+        after_paint(self, &frame_state);
+
         for err in &malfunctions {
             log::error!("malfunction while painting OpenXR views {}", err);
         }
@@ -395,7 +361,7 @@ impl OpenXRComponent {
                     EnvironmentBlendMode::OPAQUE,
                     projection_layers.as_slice(),
                 )
-                .annotate_if_err(None, "failed to fraame_stream.end")?;
+                .annotate_if_err(None, "failed to frame_stream.end")?;
         }
 
         Ok(())
@@ -468,4 +434,87 @@ pub fn projection_view_for<'a>(
                 })
                 .image_array_index(0),
         )
+}
+
+pub struct RightHandTracker {
+    space: Space,
+}
+
+impl RightHandTracker {
+    fn new(
+        instance: &Instance,
+        xr_session: &Session<Backend>,
+        action_set: &ActionSet,
+    ) -> Result<Self, XrErrorWrapped> {
+        let user_hand_left = instance
+            .string_to_path("/user/hand/left")
+            .annotate_if_err(Some(instance), "failed to ")?;
+        let user_hand_right = instance
+            .string_to_path("/user/hand/right")
+            .annotate_if_err(Some(instance), "failed to ")?;
+        let pose_action = action_set
+            .create_action::<Posef>(
+                "hand_pose",
+                "controller 1",
+                &[user_hand_left, user_hand_right],
+            )
+            .annotate_if_err(Some(instance), "failed to ")?;
+        let left_grip_pose = instance
+            .string_to_path("/user/hand/left/input/grip/pose")
+            .annotate_if_err(Some(instance), "failed to ")?;
+        let right_grip_pose = instance
+            .string_to_path("/user/hand/right/input/grip/pose")
+            .annotate_if_err(Some(instance), "failed to ")?;
+        let bindings = [
+            Binding::new(&pose_action, left_grip_pose),
+            Binding::new(&pose_action, right_grip_pose),
+        ];
+        {
+            let interaction_profile = instance
+                .string_to_path("/interaction_profiles/khr/simple_controller")
+                .annotate_if_err(Some(instance), "failed to ")?;
+
+            instance
+                .suggest_interaction_profile_bindings(interaction_profile, &bindings)
+                .annotate_if_err(Some(instance), "failed to ")?;
+        }
+
+        {
+            let interaction_profile = instance
+                .string_to_path("/interaction_profiles/oculus/touch_controller")
+                .annotate_if_err(Some(instance), "failed to ")?;
+            instance
+                .suggest_interaction_profile_bindings(interaction_profile, &bindings)
+                .annotate_if_err(Some(instance), "failed to ")?;
+        }
+
+        let mut posef = Posef::default();
+        posef.orientation.w = 1.0;
+        let space = pose_action
+            .create_space(xr_session.clone(), user_hand_right, posef)
+            .annotate_if_err(Some(instance), "failed to ")?;
+
+        Ok(Self { space })
+    }
+
+    pub fn action_set_from(
+        instance: &Instance,
+        xr_session: &Session<Backend>,
+    ) -> Result<(ActionSet, Self), XrErrorWrapped> {
+        let action_set = instance
+            .create_action_set("pants", "pants", 0)
+            .annotate_if_err(Some(instance), "failed to create_action_set")?;
+
+        let right_hand_tracker = Self::new(instance, xr_session, &action_set)?;
+
+        xr_session
+            .attach_action_sets(&[&action_set])
+            .annotate_if_err(Some(instance), "failed to attach_action_sets")?;
+
+        Ok((action_set, right_hand_tracker))
+    }
+
+    pub fn locate(&self, base: &Space, time: Time) -> Result<SpaceLocation, XrResult> {
+        self.space.locate(base, time)
+    }
 }

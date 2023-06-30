@@ -13,7 +13,7 @@ use glutin::config::{ConfigTemplate, ConfigTemplateBuilder, GlConfig};
 use glutin::context::{AsRawContext, ContextAttributesBuilder, RawContext};
 use glutin::display::{AsRawDisplay, Display, DisplayApiPreference, GlDisplay, RawDisplay};
 use log::debug;
-use openxr::{Graphics, View, ViewConfigurationView};
+use openxr::{ActiveActionSet, Graphics, View, ViewConfigurationView};
 use openxr_sys::{Time, ViewConfigurationType};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle};
 use std::error::Error;
@@ -174,6 +174,18 @@ impl<'a> ActiveRenderer<'a> {
 
     /// iterate through the various OpenXR views and paint them
     pub fn draw_inner(&mut self) -> Result<(), XrErrorWrapped> {
+        let before_paint = |openxr: &OpenXRComponent, frame_state: &openxr::FrameState| {
+            openxr
+                .xr_session
+                .sync_actions(&[ActiveActionSet::new(&openxr.action_set)])
+                .unwrap();
+
+            let space1 = &openxr.xr_space;
+            let space2 = &openxr.controller_space_1;
+            let x = space2.locate(space1, frame_state.predicted_display_time);
+            debug!("space location {:?}", x.map(|sl| sl.pose));
+        };
+
         let lambda = |view_i: &View,
                       vcv: &ViewConfigurationView,
                       predicted_display_time,
@@ -190,9 +202,12 @@ impl<'a> ActiveRenderer<'a> {
             )
             .unwrap();
         };
+        let after_paint = |_: &OpenXRComponent, _: &openxr::FrameState| {};
 
         self.openxr.paint_vr_multiview(
+            before_paint,
             lambda,
+            after_paint,
             ViewConfigurationType::PRIMARY_STEREO,
             &mut self.gpu_state,
         )
