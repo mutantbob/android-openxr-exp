@@ -64,11 +64,6 @@ impl<'a> RainbowTriangle<'a> {
 
         self.program.set_params(&matrix);
 
-        if let Ok(location) = program.get_uniform_location("matrix") {
-            //log::debug!("matrix location {}", location);
-            program.set_mat4u(location as GLint, &matrix).unwrap();
-        }
-
         let binding = self.buffers.bind(gpu_state)?;
 
         binding.draw_elements(gl::TRIANGLES, self.indices_len as i32, 0)?;

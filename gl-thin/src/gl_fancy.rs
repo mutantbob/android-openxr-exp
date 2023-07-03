@@ -6,6 +6,12 @@ use crate::gl_helper::{
 use gl::types::{GLenum, GLint, GLsizei, GLuint};
 use std::mem::size_of;
 
+/// The OpenGL API has quite a bit of state.
+/// I have barely scratched the surface of encoding it in Rust's type system,
+/// and I'm not confident that I am accurately representing the characteristics.
+/// * vertexarray bindings (maybe done?)
+/// * active texture slot bindings (not even started)
+/// * what else?
 pub struct GPUState {}
 
 impl GPUState {
