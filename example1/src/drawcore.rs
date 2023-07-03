@@ -1,5 +1,5 @@
-use crate::rainbow_triangle::Renderer;
-use crate::Scene;
+use crate::scene::MyScene;
+use crate::Drawable;
 use gl::types::GLsizei;
 use gl_thin::errors::XrErrorWrapped;
 use gl_thin::gl_fancy::GPUState;
@@ -70,20 +70,20 @@ pub fn skybox_view_matrix(rotation: &XrQuaternionf) -> XrMatrix4x4f {
     xr_matrix4x4f_invert_rigid_body(&view_matrix)
 }
 
-pub struct ActiveRenderer<'a> {
+pub struct ActiveRenderer {
     pub frame_env: FrameEnv,
-    pub render_state: Renderer<'a>,
+    pub scene: MyScene,
     pub openxr: OpenXRComponent,
     pub gpu_state: GPUState,
 }
 
-impl<'a> Scene for ActiveRenderer<'a> {
+impl Drawable for ActiveRenderer {
     fn draw(&mut self) {
         self.draw_inner().unwrap();
     }
 }
 
-impl<'a> ActiveRenderer<'a> {
+impl ActiveRenderer {
     /// Create template to find OpenGL config.
     pub fn config_template(raw_window_handle: RawWindowHandle) -> ConfigTemplate {
         let builder = ConfigTemplateBuilder::new()
@@ -108,11 +108,11 @@ impl<'a> ActiveRenderer<'a> {
             vcv0.recommended_image_rect_width,
             vcv0.recommended_image_rect_height,
         )?;
-        let render_state = Renderer::new(&mut gpu_state)?;
+        let scene = MyScene::new(&mut gpu_state)?;
 
         Ok(Self {
             frame_env,
-            render_state,
+            scene,
             openxr,
             gpu_state,
         })
@@ -195,7 +195,7 @@ impl<'a> ActiveRenderer<'a> {
                 view_i,
                 vcv,
                 predicted_display_time,
-                &self.render_state,
+                &self.scene,
                 &self.frame_env,
                 render_destination,
                 gpu_state,
@@ -218,7 +218,7 @@ impl<'a> ActiveRenderer<'a> {
         view_i: &View,
         view_config_view: &ViewConfigurationView,
         time: Time,
-        renderer: &Renderer,
+        renderer: &MyScene,
         frame_env: &FrameEnv,
         color_buffer: <Backend as Graphics>::SwapchainImage,
         gpu_state: &mut GPUState,

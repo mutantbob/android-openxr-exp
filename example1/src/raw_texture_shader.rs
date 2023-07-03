@@ -4,7 +4,7 @@ use gl_thin::gl_fancy::GPUState;
 use gl_thin::gl_helper::{explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, Texture};
 use gl_thin::linear::XrMatrix4x4f;
 
-pub struct AlphaTextureShader {
+pub struct MaskedSolidShader {
     pub program: Program,
     pub sal_position: u32,
     pub sal_tex_coord: u32,
@@ -14,7 +14,7 @@ pub struct AlphaTextureShader {
     pub sul_tex: u32,
 }
 
-impl AlphaTextureShader {
+impl MaskedSolidShader {
     pub fn new() -> Result<Self, GLErrorWrapper> {
         let program = Program::compile(shader_v_src(), shader_f_src())?;
 
