@@ -15,6 +15,10 @@ use std::mem::size_of;
 pub struct GPUState {}
 
 impl GPUState {
+    pub fn new() -> Self {
+        Self {}
+    }
+
     pub fn bind_vertex_array_and_buffers<'a, AT, IT>(
         &'a mut self,
         vertex_array: &'a VertexArray,
