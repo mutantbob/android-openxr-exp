@@ -8,12 +8,12 @@ use gl_thin::linear::{
     xr_matrix4x4f_create_translation_rotation_scale, xr_matrix4x4f_invert_rigid_body, XrMatrix4x4f,
     XrQuaternionf, XrVector3f,
 };
-use gl_thin::openxr_helpers::{Backend, OpenXRComponent};
+use gl_thin::openxr_helpers::{Backend, OpenXRComponent, RightHandTracker};
 use glutin::config::{ConfigTemplate, ConfigTemplateBuilder, GlConfig};
 use glutin::context::{AsRawContext, ContextAttributesBuilder, RawContext};
 use glutin::display::{AsRawDisplay, Display, DisplayApiPreference, GlDisplay, RawDisplay};
 use log::debug;
-use openxr::{ActiveActionSet, Graphics, View, ViewConfigurationView};
+use openxr::{ActionSet, ActiveActionSet, Graphics, SpaceLocation, View, ViewConfigurationView};
 use openxr_sys::{Time, ViewConfigurationType};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle};
 use std::error::Error;
@@ -75,6 +75,9 @@ pub struct ActiveRenderer {
     pub scene: MyScene,
     pub openxr: OpenXRComponent,
     pub gpu_state: GPUState,
+
+    action_set: ActionSet,
+    controller_space_1: RightHandTracker,
 }
 
 impl Drawable for ActiveRenderer {
@@ -110,11 +113,16 @@ impl ActiveRenderer {
         )?;
         let scene = MyScene::new(&mut gpu_state)?;
 
+        let (action_set, controller_space_1) =
+            RightHandTracker::action_set_from(&openxr.xr_instance, &openxr.xr_session)?;
+
         Ok(Self {
             frame_env,
             scene,
             openxr,
             gpu_state,
+            action_set,
+            controller_space_1,
         })
     }
 
@@ -174,23 +182,29 @@ impl ActiveRenderer {
 
     /// iterate through the various OpenXR views and paint them
     pub fn draw_inner(&mut self) -> Result<(), XrErrorWrapped> {
+        self.openxr.poll_till_no_events().unwrap();
+
+        //
+
         let before_paint = |openxr: &OpenXRComponent, frame_state: &openxr::FrameState| {
             openxr
                 .xr_session
-                .sync_actions(&[ActiveActionSet::new(&openxr.action_set)])
+                .sync_actions(&[ActiveActionSet::new(&self.action_set)])
                 .unwrap();
 
             let space1 = &openxr.xr_space;
-            let space2 = &openxr.controller_space_1;
+            let space2 = &self.controller_space_1;
             let x = space2.locate(space1, frame_state.predicted_display_time);
             debug!("space location {:?}", x.map(|sl| sl.pose));
+            x.unwrap()
         };
 
         let lambda = |view_i: &View,
                       vcv: &ViewConfigurationView,
                       predicted_display_time,
                       render_destination,
-                      gpu_state: &mut GPUState| {
+                      gpu_state: &mut GPUState,
+                      controller_1: &mut SpaceLocation| {
             Self::paint_one_view(
                 view_i,
                 vcv,
@@ -199,6 +213,7 @@ impl ActiveRenderer {
                 &self.frame_env,
                 render_destination,
                 gpu_state,
+                &controller_1,
             )
             .unwrap();
         };
@@ -222,6 +237,7 @@ impl ActiveRenderer {
         frame_env: &FrameEnv,
         color_buffer: <Backend as Graphics>::SwapchainImage,
         gpu_state: &mut GPUState,
+        controller_1: &SpaceLocation,
     ) -> Result<(), Box<dyn Error>> {
         let width = view_config_view.recommended_image_rect_width;
         let height = view_config_view.recommended_image_rect_height;
@@ -232,6 +248,7 @@ impl ActiveRenderer {
             &view_i.pose.position.into(),
             time,
             gpu_state,
+            controller_1,
         )?;
 
         Ok(())

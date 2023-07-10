@@ -2,13 +2,15 @@ use crate::rainbow_triangle::{RainbowTriangle, Suzanne, TextMessage};
 use gl_thin::gl_fancy::GPUState;
 use gl_thin::gl_helper::{explode_if_gl_error, GLErrorWrapper};
 use gl_thin::linear::{
-    xr_matrix4x4f_create_projection_fov, xr_matrix4x4f_create_scale,
-    xr_matrix4x4f_create_translation, xr_matrix4x4f_create_translation_rotation_scale,
+    xr_matrix4x4f_create_from_quaternion, xr_matrix4x4f_create_projection_fov,
+    xr_matrix4x4f_create_scale, xr_matrix4x4f_create_translation,
+    xr_matrix4x4f_create_translation_rotation_scale, xr_matrix4x4f_create_translation_v,
     xr_matrix4x4f_identity, xr_matrix4x4f_invert_rigid_body, xr_matrix4x4f_multiply, GraphicsAPI,
     XrFovf, XrQuaternionf, XrVector3f,
 };
-use openxr_sys::Time;
-use std::f32::consts::{FRAC_PI_2, TAU};
+use openxr::SpaceLocation;
+use openxr_sys::{Quaternionf, Time};
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct MyScene {
@@ -33,6 +35,7 @@ impl MyScene {
         translation: &XrVector3f,
         _time: Time,
         gpu_state: &mut GPUState,
+        controller_1: &SpaceLocation,
     ) -> Result<(), GLErrorWrapper> {
         let (theta, rotation_matrix) = rotation_matrix_for_now();
 
@@ -87,9 +90,12 @@ impl MyScene {
 
         {
             let model = {
-                let upright = matrix_rotation_about_x(-FRAC_PI_2);
-                let translate = xr_matrix4x4f_create_translation(-1.0, -0.5, -2.0);
-                let scale = xr_matrix4x4f_create_scale(0.5, 0.5, 0.5);
+                let translate = xr_matrix4x4f_create_translation_v(&controller_1.pose.position);
+                let upright = matrix_rotation_about_x(PI);
+                let rotation_matrix =
+                    xr_matrix4x4f_create_from_quaternion(&controller_1.pose.orientation.into());
+                let scale1 = 0.05;
+                let scale = xr_matrix4x4f_create_scale(scale1, scale1, scale1);
                 let model = scale;
                 let model = xr_matrix4x4f_multiply(&upright, &model);
                 let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);

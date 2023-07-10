@@ -16,6 +16,14 @@ pub fn main() {
         }
     };
     println!("cargo:rustc-link-search={}", openxr_libdir);
+
+    //
+
+    println!(
+        "cargo:rustc-link-search={}",
+        "/home/thoth/vendor/gst-android/arm64/lib"
+    );
+    println!("cargo:rustc-link-lib=ffi");
 }
 
 fn dump_env_variables() {

@@ -110,11 +110,7 @@ fn android_main(android_app: AndroidApp) {
         android_logger::Config::default().with_max_level(log::LevelFilter::Trace),
     );
 
-    // use glium::glutin::platform::android::EventLoopBuilderExtAndroid;
-
     log::debug!("bob test");
-
-    // initialize_gl_using_egli();
 
     let mut builder: //winit::event_loop::
         EventLoopBuilder<_> = EventLoopBuilder::new();

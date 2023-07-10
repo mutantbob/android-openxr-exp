@@ -3,14 +3,14 @@ use crate::gl_fancy::GPUState;
 use crate::kludges::{AndroidGLESCreateInfo, AndroidOpenGLES};
 use gl::types::GLint;
 use itertools::izip;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use openxr::sys::{result_to_string, Result as XrResult, MAX_RESULT_STRING_SIZE};
 use openxr::{
     ActionSet, ApplicationInfo, Binding, CompositionLayerBase, CompositionLayerProjection, Entry,
-    Event, ExtensionSet, FormFactor, FrameState, FrameStream, FrameWaiter, Graphics, Instance,
-    Posef, Quaternionf, ReferenceSpaceType, Session, SessionState, Space, SpaceLocation, Swapchain,
-    SwapchainCreateFlags, SwapchainCreateInfo, SwapchainUsageFlags, SystemId, Version, View,
-    ViewConfigurationType, ViewConfigurationView,
+    Event, EventDataBuffer, ExtensionSet, FormFactor, FrameState, FrameStream, FrameWaiter,
+    Graphics, Instance, Posef, Quaternionf, ReferenceSpaceType, Session, SessionState, Space,
+    SpaceLocation, Swapchain, SwapchainCreateFlags, SwapchainCreateInfo, SwapchainUsageFlags,
+    SystemId, Version, View, ViewConfigurationType, ViewConfigurationView,
 };
 use openxr_sys::{
     CompositionLayerFlags, Duration as XrDuration, EnvironmentBlendMode, Extent2Di,
@@ -29,8 +29,8 @@ pub struct OpenXRComponent {
     pub xr_swapchain_images: Vec<Vec<<Backend as Graphics>::SwapchainImage>>,
     pub xr_swapchains: Vec<Swapchain<Backend>>,
     pub view_config_views: Vec<ViewConfigurationView>,
-    pub controller_space_1: RightHandTracker,
-    pub action_set: ActionSet,
+    // pub controller_space_1: RightHandTracker,
+    // pub action_set: ActionSet,
 }
 
 impl OpenXRComponent {
@@ -122,31 +122,7 @@ impl OpenXRComponent {
             .annotate_if_err(Some(&instance), "failed to create refrence space")?;
 
         {
-            let mut event_data_buffer2 = Default::default();
-            loop {
-                match instance.poll_event(&mut event_data_buffer2) {
-                    Ok(None) => continue,
-                    Ok(Some(event)) => match event {
-                        Event::SessionStateChanged(event) => {
-                            if event.state() == SessionState::READY {
-                                break;
-                            } else {
-                                warn!("unhandled session state event: {:?}", event.state());
-                            }
-                        }
-                        _ => {
-                            debug!("ignoring event ");
-                        }
-                    },
-                    Err(result) => {
-                        return Err(XrErrorWrapped::build(
-                            result,
-                            Some(&instance),
-                            "failed to poll for events",
-                        ));
-                    }
-                };
-            }
+            Self::loop_poll_until_ready(&instance)?;
         }
 
         xr_session
@@ -225,8 +201,8 @@ impl OpenXRComponent {
             swapchain_images
         };
 
-        let (action_set, controller_space_1) =
-            RightHandTracker::action_set_from(&instance, &xr_session)?;
+        /*   let (action_set, controller_space_1) =
+        RightHandTracker::action_set_from(&instance, &xr_session)?;*/
 
         let thing = OpenXRComponent {
             xr_instance: instance,
@@ -237,25 +213,71 @@ impl OpenXRComponent {
             xr_swapchain_images,
             xr_swapchains,
             view_config_views,
-            controller_space_1,
-            action_set,
+            // controller_space_1,
+            // action_set,
         };
         Ok(thing)
+    }
+
+    pub fn loop_poll_until_ready(instance: &Instance) -> Result<(), XrErrorWrapped> {
+        let mut event_data_buffer2 = Default::default();
+        loop {
+            match instance.poll_event(&mut event_data_buffer2) {
+                Ok(None) => continue,
+                Ok(Some(event)) => match event {
+                    Event::SessionStateChanged(event) => {
+                        if event.state() == SessionState::READY {
+                            return Ok(());
+                        } else {
+                            warn!("unhandled session state event: {:?}", event.state());
+                        }
+                    }
+                    _ => {
+                        debug!("ignoring event ");
+                    }
+                },
+                Err(result) => {
+                    return Err(XrErrorWrapped::build(
+                        result,
+                        Some(&instance),
+                        "failed to poll for events",
+                    ));
+                }
+            };
+        }
     }
 
     pub fn view_count(&self) -> usize {
         self.view_config_views.len()
     }
 
-    pub fn paint_vr_multiview(
+    pub fn poll_till_no_events(&mut self) -> Result<(), XrResult> {
+        let openxr_bits = self;
+        let mut event_data_buffer = EventDataBuffer::new();
+        loop {
+            match openxr_bits.xr_instance.poll_event(&mut event_data_buffer) {
+                Ok(Some(_)) => {
+                    info!(
+                        "ignoring event ",
+                        //event_data_buffer.ty.into_raw()
+                    );
+                }
+                Ok(None) => return Ok(()), // EVENT_UNAVAILALBE,
+                Err(result) => return Err(result),
+            };
+        }
+    }
+
+    pub fn paint_vr_multiview<T>(
         &mut self,
-        mut before_paint: impl FnMut(&OpenXRComponent, &FrameState),
+        mut before_paint: impl FnMut(&OpenXRComponent, &FrameState) -> T,
         mut paint_one_view: impl FnMut(
             &View,
             &ViewConfigurationView,
             Time,
             <Backend as Graphics>::SwapchainImage,
             &mut GPUState,
+            &mut T,
         ),
         mut after_paint: impl FnMut(&OpenXRComponent, &FrameState),
         view_configuration_type: ViewConfigurationType,
@@ -282,7 +304,7 @@ impl OpenXRComponent {
 
         let mut malfunctions = vec![];
 
-        before_paint(self, &frame_state);
+        let mut arg = before_paint(self, &frame_state);
 
         for (swapchain, sci, view_i, vcv) in izip!(
             self.xr_swapchains.iter_mut(),
@@ -313,7 +335,14 @@ impl OpenXRComponent {
 
             let color_buffer = sci[buffer_index as usize];
 
-            paint_one_view(view_i, vcv, predicted_display_time, color_buffer, gpu_state);
+            paint_one_view(
+                view_i,
+                vcv,
+                predicted_display_time,
+                color_buffer,
+                gpu_state,
+                &mut arg,
+            );
 
             if let Err(result) = swapchain.release_image() {
                 malfunctions.push(XrErrorWrapped::build(
