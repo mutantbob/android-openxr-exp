@@ -213,7 +213,7 @@ impl ActiveRenderer {
                 &self.frame_env,
                 render_destination,
                 gpu_state,
-                &controller_1,
+                controller_1,
             )
             .unwrap();
         };

@@ -19,10 +19,18 @@ pub fn main() {
 
     //
 
-    println!(
-        "cargo:rustc-link-search={}",
-        "/home/thoth/vendor/gst-android/arm64/lib"
-    );
+    let android_libdir = match std::env::var("ANDROID_GST_LIBDIR") {
+        Ok(dir) => dir,
+        Err(_) => {
+            const EXAMPLE: &str = "gst-android/arm64/lib/libgstbase*.a";
+            panic!(
+                "missing ANDROID_GST_LIBDIR environment variable, what directory contains {}?",
+                EXAMPLE
+            )
+        }
+    };
+
+    println!("cargo:rustc-link-search={}", android_libdir);
     println!("cargo:rustc-link-lib=ffi");
 }
 

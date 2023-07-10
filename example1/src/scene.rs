@@ -9,8 +9,8 @@ use gl_thin::linear::{
     XrFovf, XrQuaternionf, XrVector3f,
 };
 use openxr::SpaceLocation;
-use openxr_sys::{Quaternionf, Time};
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use openxr_sys::Time;
+use std::f32::consts::{PI, TAU};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct MyScene {
