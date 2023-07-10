@@ -312,6 +312,10 @@ pub fn xr_matrix4x4f_create_translation(dx: f32, dy: f32, dz: f32) -> XrMatrix4x
     ]
 }
 
+pub fn xr_matrix4x4f_create_translation_v(xyz: &Vector3f) -> XrMatrix4x4f {
+    xr_matrix4x4f_create_translation(xyz.x, xyz.y, xyz.z)
+}
+
 pub fn xr_matrix4x4f_create_from_quaternion(quat: &XrQuaternionf) -> XrMatrix4x4f {
     let x2 = quat.x + quat.x;
     let y2 = quat.y + quat.y;
