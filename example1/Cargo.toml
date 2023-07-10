@@ -9,6 +9,7 @@ edition = "2021"
 android-activity = { version = "*" , features=["native-activity"]}
 android_logger = "*"
 log="*"
+rusttype="*"
 openxr = { version = "*", features=["linked"] }
 openxr-sys = "*"
 glutin = "0.30"

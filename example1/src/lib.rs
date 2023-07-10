@@ -15,21 +15,24 @@ use winit::platform::android::EventLoopBuilderExtAndroid;
 pub mod drawcore;
 pub mod flat_color_shader;
 pub mod rainbow_triangle;
+pub mod raw_texture_shader;
+pub mod scene;
 pub mod sun_phong_shader;
 pub mod suzanne;
+pub mod text_painting;
 
 //
 
-pub trait Scene {
+pub trait Drawable {
     fn draw(&mut self);
 }
 
-pub enum AppState<T: Scene> {
+pub enum AppState<T: Drawable> {
     Paused,
     Active(T),
 }
 
-impl<T: Scene> Default for AppState<T> {
+impl<T: Drawable> Default for AppState<T> {
     fn default() -> Self {
         Self::Paused
     }
@@ -37,7 +40,7 @@ impl<T: Scene> Default for AppState<T> {
 
 //
 
-fn event_loop_one_pass<T: Scene, X: std::fmt::Debug, E: std::fmt::Debug>(
+fn event_loop_one_pass<T: Drawable, X: std::fmt::Debug, E: std::fmt::Debug>(
     event: Event<X>,
     event_loop: &EventLoopWindowTarget<X>,
     control_flow: &mut ControlFlow,
