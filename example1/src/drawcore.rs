@@ -81,7 +81,12 @@ pub struct ActiveRenderer {
 }
 
 impl Drawable for ActiveRenderer {
-    fn draw(&mut self) {
+    fn handle_events_and_draw(&mut self) {
+        // The event handling loop should probably be more sophisticated than this.
+        self.openxr.poll_till_no_events().unwrap();
+
+        //
+
         self.draw_inner().unwrap();
     }
 }
@@ -182,10 +187,6 @@ impl ActiveRenderer {
 
     /// iterate through the various OpenXR views and paint them
     pub fn draw_inner(&mut self) -> Result<(), XrErrorWrapped> {
-        self.openxr.poll_till_no_events().unwrap();
-
-        //
-
         let before_paint = |openxr: &OpenXRComponent, frame_state: &openxr::FrameState| {
             openxr
                 .xr_session

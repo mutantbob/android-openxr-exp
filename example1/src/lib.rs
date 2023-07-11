@@ -24,7 +24,7 @@ pub mod text_painting;
 //
 
 pub trait Drawable {
-    fn draw(&mut self);
+    fn handle_events_and_draw(&mut self);
 }
 
 pub enum AppState<T: Drawable> {
@@ -87,7 +87,7 @@ fn event_loop_one_pass<T: Drawable, X: std::fmt::Debug, E: std::fmt::Debug>(
         Event::RedrawRequested(_) => {
             log::trace!("Handling Redraw Request");
             if let AppState::Active(app) = app {
-                app.draw();
+                app.handle_events_and_draw();
             }
         }
         Event::WindowEvent {
@@ -96,7 +96,7 @@ fn event_loop_one_pass<T: Drawable, X: std::fmt::Debug, E: std::fmt::Debug>(
         } => *control_flow = ControlFlow::Exit,
         Event::NewEvents(_) => {
             if let AppState::Active(app) = app {
-                app.draw();
+                app.handle_events_and_draw();
             }
         }
         _ => {}
