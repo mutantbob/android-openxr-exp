@@ -29,8 +29,6 @@ pub struct OpenXRComponent {
     pub xr_swapchain_images: Vec<Vec<<Backend as Graphics>::SwapchainImage>>,
     pub xr_swapchains: Vec<Swapchain<Backend>>,
     pub view_config_views: Vec<ViewConfigurationView>,
-    // pub controller_space_1: RightHandTracker,
-    // pub action_set: ActionSet,
 }
 
 impl OpenXRComponent {
@@ -201,9 +199,6 @@ impl OpenXRComponent {
             swapchain_images
         };
 
-        /*   let (action_set, controller_space_1) =
-        RightHandTracker::action_set_from(&instance, &xr_session)?;*/
-
         let thing = OpenXRComponent {
             xr_instance: instance,
             xr_session,
@@ -213,8 +208,6 @@ impl OpenXRComponent {
             xr_swapchain_images,
             xr_swapchains,
             view_config_views,
-            // controller_space_1,
-            // action_set,
         };
         Ok(thing)
     }
@@ -469,7 +462,7 @@ pub struct RightHandTracker {
 }
 
 impl RightHandTracker {
-    fn new(
+    pub fn new(
         instance: &Instance,
         xr_session: &Session<Backend>,
         action_set: &ActionSet,
