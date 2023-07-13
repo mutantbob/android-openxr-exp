@@ -36,3 +36,7 @@ categories = [
     "android.intent.category.LAUNCHER",
     "com.oculus.intent.category.VR",
 ]
+
+[patch.crates-io]
+openxr = { path = "../../../vendor/openxrs/openxr" }
+openxr-sys = { path = "../../../vendor/openxrs/sys" }

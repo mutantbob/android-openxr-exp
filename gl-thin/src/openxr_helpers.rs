@@ -1,6 +1,5 @@
 use crate::errors::{Wrappable, XrErrorWrapped};
 use crate::gl_fancy::GPUState;
-use crate::kludges::{AndroidGLESCreateInfo, AndroidOpenGLES};
 use gl::types::GLint;
 use itertools::izip;
 use log::{debug, error, info, warn};
@@ -12,6 +11,7 @@ use openxr::{
     SpaceLocation, Swapchain, SwapchainCreateFlags, SwapchainCreateInfo, SwapchainUsageFlags,
     SystemId, Version, View, ViewConfigurationType, ViewConfigurationView,
 };
+use openxr::{AndroidGLESCreateInfo, AndroidOpenGLES};
 use openxr_sys::{
     CompositionLayerFlags, Duration as XrDuration, EnvironmentBlendMode, Extent2Di,
     GraphicsRequirementsOpenGLESKHR, Offset2Di, Rect2Di, Time,
