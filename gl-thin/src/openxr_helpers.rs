@@ -3,7 +3,9 @@ use crate::gl_fancy::GPUState;
 use gl::types::GLint;
 use itertools::izip;
 use log::{debug, error, info, warn};
+use openxr::opengles::SessionCreateInfo;
 use openxr::sys::{result_to_string, Result as XrResult, MAX_RESULT_STRING_SIZE};
+use openxr::OpenGlEs;
 use openxr::{
     ActionSet, ApplicationInfo, Binding, CompositionLayerBase, CompositionLayerProjection, Entry,
     Event, EventDataBuffer, ExtensionSet, FormFactor, FrameState, FrameStream, FrameWaiter,
@@ -11,14 +13,13 @@ use openxr::{
     SpaceLocation, Swapchain, SwapchainCreateFlags, SwapchainCreateInfo, SwapchainUsageFlags,
     SystemId, Version, View, ViewConfigurationType, ViewConfigurationView,
 };
-use openxr::{AndroidGLESCreateInfo, AndroidOpenGLES};
 use openxr_sys::{
-    CompositionLayerFlags, Duration as XrDuration, EnvironmentBlendMode, Extent2Di,
-    GraphicsRequirementsOpenGLESKHR, Offset2Di, Rect2Di, Time,
+    CompositionLayerFlags, Duration as XrDuration, EnvironmentBlendMode, Extent2Di, Offset2Di,
+    Rect2Di, Time,
 };
 use std::ffi::{c_void, CStr};
 
-pub type Backend = AndroidOpenGLES;
+pub type Backend = OpenGlEs;
 
 pub struct OpenXRComponent {
     pub xr_instance: Instance,
@@ -94,10 +95,11 @@ impl OpenXRComponent {
         check_version_requirements(&instance, system_id, gl_major_version, gl_minor_version)?;
 
         let (xr_session, frame_waiter, frame_stream) = {
-            let info = AndroidGLESCreateInfo {
-                gl_context,
-                gl_display,
-                system_id,
+            let info = SessionCreateInfo::Android {
+                context: gl_context,
+                display: gl_display,
+                //system_id,
+                config: std::ptr::null_mut(),
             };
 
             unsafe { instance.create_session(system_id, &info) }
@@ -133,9 +135,9 @@ impl OpenXRComponent {
                 .annotate_if_err(Some(&instance), "failed to enumerate swapchain formats")?;
 
             let swapchain_format = swapchain_formats.into_iter().find(|&fmt| {
-                fmt == gl::RGBA8 as i64
-                    || fmt == gl::RGBA8_SNORM as i64
-                    || (fmt == gl::SRGB8_ALPHA8 as i64 && gl_major_version >= 3)
+                fmt == gl::RGBA8
+                    || fmt == gl::RGBA8_SNORM
+                    || (fmt == gl::SRGB8_ALPHA8 && gl_major_version >= 3)
             });
 
             match swapchain_format {
@@ -157,7 +159,7 @@ impl OpenXRComponent {
                     view_config_i.recommended_image_rect_width,
                     view_config_i.recommended_image_rect_height
                 );
-                let fmt: i64 = swapchain_format;
+                let fmt: u32 = swapchain_format;
                 debug!("format {}", fmt);
                 let swapchain_create_info = SwapchainCreateInfo::<Backend> {
                     create_flags: SwapchainCreateFlags::EMPTY,
@@ -420,8 +422,7 @@ pub fn check_version_requirements(
     gl_major_version: GLint,
     gl_minor_version: GLint,
 ) -> Result<(), XrErrorWrapped> {
-    let tmp: Result<GraphicsRequirementsOpenGLESKHR, openxr_sys::Result> =
-        Backend::requirements(instance, system_id);
+    let tmp: Result<_, openxr_sys::Result> = Backend::requirements(instance, system_id);
     let graphics_requirements =
         tmp.annotate_if_err(Some(instance), "failed to get requirements")?;
 

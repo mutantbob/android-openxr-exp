@@ -696,6 +696,7 @@ checksum = "b7e5500299e16ebb147ae15a00a942af264cf3688f47923b8fc2cd5858f23ad3"
 [[package]]
 name = "openxr"
 version = "0.17.1"
+source = "git+https://github.com/Ralith/openxrs.git?rev=48b5875#48b5875fd82a0cd0fda9e402efa50204a88c029d"
 dependencies = [
  "libc",
  "libloading 0.8.0",
@@ -706,6 +707,7 @@ dependencies = [
 [[package]]
 name = "openxr-sys"
 version = "0.9.3"
+source = "git+https://github.com/Ralith/openxrs.git?rev=48b5875#48b5875fd82a0cd0fda9e402efa50204a88c029d"
 dependencies = [
  "libc",
 ]

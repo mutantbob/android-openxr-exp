@@ -10,8 +10,6 @@ android-activity = { version = "*" , features=["native-activity"]}
 android_logger = "*"
 log="*"
 rusttype="*"
-openxr = { version = "*", features=["linked"] }
-openxr-sys = "*"
 glutin = "0.30"
 gl="*"
 egli="*"
@@ -19,6 +17,18 @@ winit = "*"
 raw-window-handle = "*"
 itertools = "*"
 gl-thin = { path="../gl-thin"}
+
+[dependencies.openxr]
+features=["linked"]
+#version=">=0.18"
+# until the OpenGlEs Graphics backend is published, we must use git
+git="https://github.com/Ralith/openxrs.git"
+rev="48b5875"
+[dependencies.openxr-sys]
+#version=">=0.18"
+# until the OpenGlEs Graphics backend is published, we must use git
+git="https://github.com/Ralith/openxrs.git"
+rev="48b5875"
 
 
 [lib]
@@ -38,5 +48,5 @@ categories = [
 ]
 
 [patch.crates-io]
-openxr = { path = "../../../vendor/openxrs/openxr" }
-openxr-sys = { path = "../../../vendor/openxrs/sys" }
+#openxr = { path = "../../../vendor/openxrs/openxr" }
+#openxr-sys = { path = "../../../vendor/openxrs/sys" }
