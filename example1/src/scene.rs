@@ -35,7 +35,7 @@ impl MyScene {
         translation: &XrVector3f,
         _time: Time,
         gpu_state: &mut GPUState,
-        controller_1: &SpaceLocation,
+        controller_1: &Option<SpaceLocation>,
     ) -> Result<(), GLErrorWrapper> {
         let (theta, rotation_matrix) = rotation_matrix_for_now();
 
@@ -88,7 +88,7 @@ impl MyScene {
                 .paint_color_triangle(&matrix, &model, gpu_state)?;
         }
 
-        {
+        if let Some(controller_1) = controller_1 {
             let model = {
                 let translate = xr_matrix4x4f_create_translation_v(&controller_1.pose.position);
                 let upright = matrix_rotation_about_x(PI);

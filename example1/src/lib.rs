@@ -20,6 +20,7 @@ pub mod scene;
 pub mod sun_phong_shader;
 pub mod suzanne;
 pub mod text_painting;
+pub mod xr_input;
 
 //
 
