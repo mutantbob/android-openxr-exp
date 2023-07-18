@@ -32,6 +32,14 @@ pub struct OpenXRComponent {
     pub view_config_views: Vec<ViewConfigurationView>,
 }
 
+impl Drop for OpenXRComponent {
+    fn drop(&mut self) {
+        if let Err(e) = self.xr_session.end() {
+            self.complain_about_error(e);
+        }
+    }
+}
+
 impl OpenXRComponent {
     /// # Safety
     /// the gl_display and gl_context are passed to the OpenXR create_session() call.
@@ -246,18 +254,23 @@ impl OpenXRComponent {
         self.view_config_views.len()
     }
 
-    pub fn poll_till_no_events(&mut self) -> Result<(), XrResult> {
+    pub fn poll_till_no_events(&mut self) -> Result<LoopStatus, XrResult> {
         let openxr_bits = self;
         let mut event_data_buffer = EventDataBuffer::new();
         loop {
             match openxr_bits.xr_instance.poll_event(&mut event_data_buffer) {
-                Ok(Some(_)) => {
+                Ok(Some(evt)) => {
+                    if let Event::SessionStateChanged(ch) = evt {
+                        if let SessionState::STOPPING = ch.state() {
+                            return Ok(LoopStatus::PleaseStop);
+                        }
+                    }
                     info!(
                         "ignoring event ",
                         //event_data_buffer.ty.into_raw()
                     );
                 }
-                Ok(None) => return Ok(()), // EVENT_UNAVAILALBE,
+                Ok(None) => return Ok(LoopStatus::Groovy), // EVENT_UNAVAILALBE,
                 Err(result) => return Err(result),
             };
         }
@@ -458,6 +471,8 @@ pub fn projection_view_for<'a>(
         )
 }
 
+//
+
 pub struct RightHandTracker {
     pub space: Space,
 }
@@ -539,4 +554,15 @@ impl RightHandTracker {
     pub fn locate(&self, base: &Space, time: Time) -> Result<SpaceLocation, XrResult> {
         self.space.locate(base, time)
     }
+}
+
+//
+
+/// the return value for our canned event processing loop
+#[derive(PartialEq, Eq)]
+pub enum LoopStatus {
+    /// the XR state changed to STOPPING
+    PleaseStop,
+    /// Nothing weird happened, carry on
+    Groovy,
 }
