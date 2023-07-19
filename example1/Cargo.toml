@@ -17,6 +17,7 @@ winit = "*"
 raw-window-handle = "*"
 itertools = "*"
 gl-thin = { path="../gl-thin"}
+bob-shaders = { path = "../bob-shaders" }
 
 [dependencies.openxr]
 features=["linked"]

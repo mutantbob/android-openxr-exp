@@ -1,6 +1,3 @@
-use crate::flat_color_shader::FlatColorShader;
-use crate::raw_texture_shader::MaskedSolidShader;
-use crate::sun_phong_shader::{GeometryBuffer, SunPhongShader};
 use crate::text_painting;
 use gl::types::{GLfloat, GLint, GLsizei, GLushort};
 use gl_thin::gl_fancy::{BoundBuffers, BoundBuffersMut, GPUState, VertexBufferBundle};
@@ -9,6 +6,10 @@ use gl_thin::gl_helper::{
 };
 use gl_thin::linear::{xr_matrix4x4f_multiply, XrMatrix4x4f};
 use std::mem::size_of;
+use bob_shaders::flat_color_shader::FlatColorShader;
+use bob_shaders::GeometryBuffer;
+use bob_shaders::raw_texture_shader::MaskedSolidShader;
+use bob_shaders::sun_phong_shader::SunPhongShader;
 
 //
 

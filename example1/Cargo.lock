@@ -119,6 +119,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bob-shaders"
+version = "0.1.0"
+dependencies = [
+ "egli",
+ "gl",
+ "gl-thin",
+ "log",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -365,6 +375,7 @@ version = "0.1.0"
 dependencies = [
  "android-activity",
  "android_logger",
+ "bob-shaders",
  "egli",
  "gl",
  "gl-thin",
