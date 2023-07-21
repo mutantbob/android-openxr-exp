@@ -1,8 +1,9 @@
+use crate::GeometryBuffer;
 use gl::types::{GLint, GLsizei};
 use gl_thin::gl_fancy::GPUState;
 use gl_thin::gl_helper::{explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, Texture};
 use gl_thin::linear::XrMatrix4x4f;
-use crate::GeometryBuffer;
+use log::debug;
 
 pub struct MaskedSolidShader {
     pub program: Program,
@@ -26,14 +27,9 @@ impl MaskedSolidShader {
         let sul_model = program.get_uniform_location("u_model")?;
         let sul_tex = program.get_uniform_location("tex")?;
 
-        log::debug!(
+        debug!(
             "attribute, uniform locations {} {}  {} {} {} {}",
-            sal_position,
-            sal_tex_coord,
-            sul_projection,
-            sul_view,
-            sul_model,
-            sul_tex,
+            sal_position, sal_tex_coord, sul_projection, sul_view, sul_model, sul_tex,
         );
 
         Ok(Self {

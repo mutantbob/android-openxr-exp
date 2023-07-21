@@ -8,5 +8,4 @@ edition = "2021"
 [dependencies]
 log="*"
 gl="*"
-egli="*"
 gl-thin = { path="../gl-thin"}
