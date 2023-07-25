@@ -1,6 +1,6 @@
 use gl::types::GLint;
 use gl_thin::gl_helper::{explode_if_gl_error, GLErrorWrapper, Texture};
-use rusttype::{point, Font, Scale};
+use rusttype::{point, Font, PositionedGlyph, Scale};
 
 pub fn text_to_greyscale_texture(
     width: GLint,
@@ -38,23 +38,12 @@ pub fn text_to_greyscale_texture(
     if false {
         // this doesn't work on the oculus
         let mut pixel_data = vec![99u8; (width * height) as usize];
-        for g in glyphs {
-            if let Some(bb) = g.pixel_bounding_box() {
-                g.draw(|x0, y0, v| {
-                    let x = x0 as i32 + bb.min.x;
-                    let y = y0 as i32 + bb.min.y;
-                    if x >= 0 && x < width && y >= 0 && y < height {
-                        let idx = x + y * width;
-                        pixel_data[idx as usize] = ((1.0 - v) * 255.9) as u8;
-                    }
-                })
-            }
-        }
+        render_glyphs_to_grey(width, height, &glyphs, &mut pixel_data);
         target
             .write_pixels(
                 gl::TEXTURE_2D,
                 0,
-                gl::RED as GLint,
+                gl::RGB as GLint,
                 width,
                 height,
                 gl::RED,
@@ -63,21 +52,7 @@ pub fn text_to_greyscale_texture(
             .unwrap();
     } else {
         let mut pixel_data = vec![0u8; (3 * width * height) as usize];
-        for g in glyphs {
-            if let Some(bb) = g.pixel_bounding_box() {
-                g.draw(|x0, y0, v| {
-                    let x = x0 as i32 + bb.min.x;
-                    let y = y0 as i32 + bb.min.y;
-                    if x >= 0 && x < width && y >= 0 && y < height {
-                        let idx = (3 * (x + y * width)) as usize;
-                        let a = (v * 255.9) as u8;
-                        pixel_data[idx] = a;
-                        pixel_data[idx + 1] = a;
-                        pixel_data[idx + 2] = a;
-                    }
-                })
-            }
-        }
+        render_glyphs_to_rgb(width, height, &glyphs, &mut pixel_data);
 
         if true {
             log::debug!(
@@ -103,4 +78,47 @@ pub fn text_to_greyscale_texture(
         explode_if_gl_error()?;
     }
     Ok(target)
+}
+
+fn render_glyphs_to_grey<'a, 'f: 'a>(
+    width: i32,
+    height: i32,
+    glyphs: impl IntoIterator<Item = &'a PositionedGlyph<'f>>,
+    pixel_data: &mut [u8],
+) {
+    for g in glyphs {
+        if let Some(bb) = g.pixel_bounding_box() {
+            g.draw(|x0, y0, v| {
+                let x = x0 as i32 + bb.min.x;
+                let y = y0 as i32 + bb.min.y;
+                if x >= 0 && x < width && y >= 0 && y < height {
+                    let idx = x + y * width;
+                    pixel_data[idx as usize] = ((1.0 - v) * 255.9) as u8;
+                }
+            })
+        }
+    }
+}
+
+fn render_glyphs_to_rgb<'a, 'f: 'a>(
+    width: i32,
+    height: i32,
+    glyphs: impl IntoIterator<Item = &'a PositionedGlyph<'f>>,
+    pixel_data: &mut [u8],
+) {
+    for g in glyphs {
+        if let Some(bb) = g.pixel_bounding_box() {
+            g.draw(|x0, y0, v| {
+                let x = x0 as i32 + bb.min.x;
+                let y = y0 as i32 + bb.min.y;
+                if x >= 0 && x < width && y >= 0 && y < height {
+                    let idx = (3 * (x + y * width)) as usize;
+                    let a = (v * 255.9) as u8;
+                    pixel_data[idx] = a;
+                    pixel_data[idx + 1] = a;
+                    pixel_data[idx + 2] = a;
+                }
+            })
+        }
+    }
 }

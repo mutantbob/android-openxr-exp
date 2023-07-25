@@ -32,34 +32,47 @@ pub fn explode_if_gl_error() -> Result<(), GLErrorWrapper> {
 //
 
 #[derive(Clone)]
+pub enum MessageForError {
+    None,
+    CStr(CString),
+    Str(String),
+}
+
+#[derive(Clone)]
 pub struct GLErrorWrapper {
     pub code: GLenum,
-    pub message: Option<CString>,
+    pub message: MessageForError,
 }
 
 impl GLErrorWrapper {
     pub fn with_message(msg: CString) -> Self {
         Self {
             code: 0,
-            message: Some(msg),
+            message: MessageForError::CStr(msg),
         }
     }
-}
 
-impl GLErrorWrapper {
+    pub fn with_message2(msg: String) -> Self {
+        Self {
+            code: 0,
+            message: MessageForError::Str(msg),
+        }
+    }
+
     pub fn new(code: GLenum) -> Self {
         Self {
             code,
-            message: None,
+            message: MessageForError::None,
         }
     }
 }
 
 impl Debug for GLErrorWrapper {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self.message.as_ref() {
-            Some(msg) => write!(f, "{:?}", msg),
-            None => write!(f, "0x{:x}", self.code),
+        match &self.message {
+            MessageForError::CStr(msg) => write!(f, "{:?}", msg),
+            MessageForError::Str(msg) => write!(f, "{:?}", msg),
+            MessageForError::None => write!(f, "0x{:x}", self.code),
         }
     }
 }
@@ -575,6 +588,16 @@ impl Texture {
         format: GLenum,
         pixels: &[T],
     ) -> Result<(), GLErrorWrapper> {
+        let bpp = bytes_per_pixel::<T>(format)?;
+        if (width * height) as usize * bpp != pixels.len() {
+            return Err(GLErrorWrapper::with_message2(format!(
+                "size mismatch : {}*{}*{} != {}",
+                width,
+                height,
+                bpp,
+                pixels.len()
+            )));
+        }
         self.bind(target)?;
         unsafe {
             gl::TexImage2D(
@@ -648,4 +671,21 @@ impl GLBufferType for GLushort {
 /// It is only good for calls to functions like gl::VertexAttribPointer and gl::DrawArrays
 pub const unsafe fn gl_offset_for<T>(count: GLsizei) -> *const c_void {
     (count * size_of::<T>() as GLsizei) as *const c_void
+}
+
+pub fn bytes_per_pixel<T: GLBufferType>(format: GLenum) -> Result<usize, GLErrorWrapper> {
+    let alpha = match format {
+        gl::RGB => 3,
+        gl::RED => 1,
+        gl::RGBA => 4,
+        _ => {
+            // there are so many variants I am missing ...
+            return Err(GLErrorWrapper::with_message2(format!(
+                "unhandled format 0x{:x}",
+                format
+            )));
+        }
+    };
+
+    Ok(alpha * size_of::<T>())
 }

@@ -122,7 +122,6 @@ dependencies = [
 name = "bob-shaders"
 version = "0.1.0"
 dependencies = [
- "egli",
  "gl",
  "gl-thin",
  "log",
