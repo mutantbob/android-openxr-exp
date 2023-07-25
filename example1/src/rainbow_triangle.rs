@@ -1,4 +1,8 @@
 use crate::text_painting;
+use bob_shaders::flat_color_shader::FlatColorShader;
+use bob_shaders::masked_solid_shader::MaskedSolidShader;
+use bob_shaders::sun_phong_shader::SunPhongShader;
+use bob_shaders::GeometryBuffer;
 use gl::types::{GLfloat, GLint, GLsizei, GLushort};
 use gl_thin::gl_fancy::{BoundBuffers, BoundBuffersMut, GPUState, VertexBufferBundle};
 use gl_thin::gl_helper::{
@@ -6,10 +10,6 @@ use gl_thin::gl_helper::{
 };
 use gl_thin::linear::{xr_matrix4x4f_multiply, XrMatrix4x4f};
 use std::mem::size_of;
-use bob_shaders::flat_color_shader::FlatColorShader;
-use bob_shaders::GeometryBuffer;
-use bob_shaders::raw_texture_shader::MaskedSolidShader;
-use bob_shaders::sun_phong_shader::SunPhongShader;
 
 //
 
@@ -196,8 +196,8 @@ pub struct TextMessage {
 
 impl TextMessage {
     pub fn new(gpu_state: &mut GPUState) -> Result<Self, GLErrorWrapper> {
-        let mut buffers = VertexBufferBundle::new().unwrap();
-        let binding = buffers.bind_mut(gpu_state).unwrap();
+        let mut buffers = VertexBufferBundle::new()?;
+        let binding = buffers.bind_mut(gpu_state)?;
 
         let tex_width = 256;
         let tex_height = 64;
@@ -216,34 +216,27 @@ impl TextMessage {
             xmin, YMAX, Z, UMIN, UMIN, //
             xmax, YMAX, Z, UMAX, UMIN, //
         ];
-        binding.vertex_buffer.load_owned(xyuv).unwrap();
+        binding.vertex_buffer.load_owned(xyuv)?;
 
         let indices = &[0, 1, 2, 3];
-        binding.index_buffer.load(indices).unwrap();
+        binding.index_buffer.load(indices)?;
 
-        let program = MaskedSolidShader::new().unwrap();
+        let program = MaskedSolidShader::new()?;
 
-        program.program.use_().unwrap();
-        binding
-            .rig_one_attribute(program.sal_position, 3, 5, 0)
-            .unwrap();
-        binding
-            .rig_one_attribute(program.sal_tex_coord, 2, 5, 3)
-            .unwrap();
+        program.program.use_()?;
+        binding.rig_one_attribute(program.sal_position, 3, 5, 0)?;
+        binding.rig_one_attribute(program.sal_tex_coord, 2, 5, 3)?;
 
         drop(binding);
+
+        let texture =
+            text_painting::text_to_greyscale_texture(tex_width, tex_height, 66.0, "Hail Bob!")?;
 
         let rval = Self {
             program,
             buffers,
             index_count: indices.len() as GLsizei,
-            texture: text_painting::text_to_greyscale_texture(
-                tex_width,
-                tex_height,
-                66.0,
-                "Hail Bob!",
-            )
-            .unwrap(),
+            texture,
         };
         Ok(rval)
     }

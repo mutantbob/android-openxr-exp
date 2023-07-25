@@ -1,146 +1,165 @@
-use crate::GeometryBuffer;
-use gl::types::{GLint, GLsizei};
-use gl_thin::gl_fancy::GPUState;
-use gl_thin::gl_helper::{explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, Texture};
+use gl::types::{GLfloat, GLsizei, GLuint};
+use gl_thin::gl_fancy::BoundBuffers;
+use gl_thin::gl_helper::{gl_offset_for, GLBufferType, GLErrorWrapper, Program};
 use gl_thin::linear::XrMatrix4x4f;
-use log::debug;
+use std::mem::size_of;
 
-pub struct MaskedSolidShader {
-    pub program: Program,
-    pub sal_position: u32,
-    pub sal_tex_coord: u32,
-    pub sul_projection: u32,
-    pub sul_view: u32,
-    pub sul_model: u32,
-    pub sul_tex: u32,
+pub struct RawTextureShader {
+    pub shader: Program,
+    pub shader_attribute_position_location: u32,
+    pub shader_attribute_texture_location: u32,
 }
 
-impl MaskedSolidShader {
-    pub fn new() -> Result<Self, GLErrorWrapper> {
-        let program = Program::compile(shader_v_src(), shader_f_src())?;
+impl Drop for RawTextureShader {
+    fn drop(&mut self) {}
+}
 
-        let sal_position = program.get_attribute_location("a_position")?;
-        let sal_tex_coord = program.get_attribute_location("a_texCoord")?;
+impl RawTextureShader {
+    pub fn new(texture_target: GLuint) -> Result<RawTextureShader, GLErrorWrapper> {
+        let shader = Program::compile(shader_v_src(), shader_f_src(texture_target))?;
 
-        let sul_projection = program.get_uniform_location("u_projection")?;
-        let sul_view = program.get_uniform_location("u_view")?;
-        let sul_model = program.get_uniform_location("u_model")?;
-        let sul_tex = program.get_uniform_location("tex")?;
+        let shader_attribute_position_location =
+            shader.get_attribute_location("a_position")? as u32;
+        let shader_attribute_texture_location = shader.get_attribute_location("a_texcoord")? as u32;
 
-        debug!(
-            "attribute, uniform locations {} {}  {} {} {} {}",
-            sal_position, sal_tex_coord, sul_projection, sul_view, sul_model, sul_tex,
-        );
-
-        Ok(Self {
-            program,
-            sal_position,
-            sal_tex_coord,
-            sul_projection,
-            sul_view,
-            sul_model,
-            sul_tex,
+        Ok(RawTextureShader {
+            shader,
+            shader_attribute_position_location,
+            shader_attribute_texture_location,
         })
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn draw<AT, IT: GLBufferType>(
+    pub fn set_params(
         &self,
-        projection: &XrMatrix4x4f,
-        view: &XrMatrix4x4f,
-        model: &XrMatrix4x4f,
-        mask: &Texture,
-        color: &[f32; 3],
-        buffers: &dyn GeometryBuffer<AT, IT>,
-        n_indices: GLsizei,
-        gpu_state: &mut GPUState,
+        projection_matrix: &XrMatrix4x4f,
+        inverse_view_matrix: &XrMatrix4x4f,
+        model_matrix: &XrMatrix4x4f,
+        texture_image_unit: u32,
     ) -> Result<(), GLErrorWrapper> {
-        self.program.use_()?;
-
-        self.set_u_projection(projection)?;
-        self.set_u_view(view)?;
-        self.set_u_model(model)?;
-
-        self.set_color(color)?;
-
-        let texture_image_unit = 0;
-        unsafe {
-            gl::ActiveTexture(gl::TEXTURE0 + texture_image_unit);
-        }
-        explode_if_gl_error()?;
-        mask.bind(gl::TEXTURE_2D)?;
-
+        self.shader.use_()?;
         self.set_texture(texture_image_unit)?;
-
-        let bindings = buffers.activate(gpu_state);
-
-        bindings.draw_elements(gl::TRIANGLE_STRIP, n_indices, 0)?;
-
-        // unbind
-
-        buffers.deactivate(bindings);
-        unsafe {
-            gl::DisableVertexAttribArray(self.sal_tex_coord);
-            gl::DisableVertexAttribArray(self.sal_position);
-        }
-
-        Ok(())
+        self.set_u_model(model_matrix)?;
+        self.set_u_projection(projection_matrix)?;
+        self.set_u_view(inverse_view_matrix)
     }
 
-    fn set_texture(&self, texture_unit: u32) -> Result<(), GLErrorWrapper> {
-        self.program.set_uniform_1i("tex", texture_unit as GLint)
-    }
-
-    fn set_color(&self, color: &[f32; 3]) -> Result<(), GLErrorWrapper> {
-        self.program
-            .set_uniform_3f("color", color[0], color[1], color[2])
-    }
-
-    fn set_u_view(&self, matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
-        self.program.set_mat4u(self.sul_view as GLint, matrix)
+    fn set_u_view(&self, inverse_view_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
+        self.shader.set_mat4u(
+            self.shader.get_uniform_location("u_view")? as i32,
+            inverse_view_matrix,
+        )
     }
 
     fn set_u_projection(&self, projection_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
-        self.program
-            .set_mat4u(self.sul_projection as GLint, projection_matrix)
+        self.shader.set_mat4u(
+            self.shader.get_uniform_location("u_projection")? as i32,
+            projection_matrix,
+        )
     }
 
     fn set_u_model(&self, matrix: &[f32; 16]) -> Result<(), GLErrorWrapper> {
-        self.program.set_mat4u(self.sul_model as GLint, matrix)
+        self.shader
+            .set_mat4u(self.shader.get_uniform_location("u_model")? as i32, matrix)
+    }
+
+    fn set_texture(&self, index: u32) -> Result<(), GLErrorWrapper> {
+        self.shader.set_uniform_1i("tex", index as i32)
+    }
+
+    pub fn draw<AT, IT: GLBufferType>(
+        &self,
+        gl_ram: &BoundBuffers<AT, IT>,
+        indices_count: GLsizei,
+        // indices: &[u16], xyzuvs: &[GLfloat]
+    ) -> Result<(), GLErrorWrapper> {
+        // gl_ram.fill_buffers(indices, xyzuvs);
+
+        unsafe {
+            gl::VertexAttribPointer(
+                self.shader_attribute_position_location,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                5 * size_of::<GLfloat>() as GLsizei,
+                gl_offset_for::<AT>(0),
+            );
+            gl::VertexAttribPointer(
+                self.shader_attribute_texture_location,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                5 * size_of::<GLfloat>() as GLsizei,
+                gl_offset_for::<AT>(3),
+            );
+
+            gl::EnableVertexAttribArray(self.shader_attribute_position_location);
+            gl::EnableVertexAttribArray(self.shader_attribute_texture_location);
+        }
+        gl_ram.draw_elements(gl::TRIANGLES, indices_count, 0)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn draw2<AT, IT: GLBufferType>(
+        &self,
+        projection_matrix: &XrMatrix4x4f,
+        inverse_view_matrix: &XrMatrix4x4f,
+        model_matrix: &[f32; 16],
+        texture_image_unit: u32,
+        gl_ram: &BoundBuffers<AT, IT>,
+        indices_count: GLsizei,
+    ) -> Result<(), GLErrorWrapper> {
+        self.set_params(
+            projection_matrix,
+            inverse_view_matrix,
+            model_matrix,
+            texture_image_unit,
+        )?;
+
+        self.draw(gl_ram, indices_count)
     }
 }
+
+pub const IDENTITY: XrMatrix4x4f = [
+    1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+];
 
 fn shader_v_src() -> &'static str {
     "
 attribute vec4 a_position;
-attribute vec2 a_texCoord;
-
-varying vec2 v_texCoord;
-
+attribute vec2 a_texcoord;
+varying vec2 v_texcoord;
 uniform mat4 u_model;
 uniform mat4 u_view;
 uniform mat4 u_projection;
-
 void main()
 {
-    mat4 pvm = u_projection * u_view * u_model;
-    gl_Position = pvm * a_position;
-    v_texCoord = a_texCoord;
+    gl_Position = u_projection * u_view * u_model * a_position;
+    v_texcoord = a_texcoord;
 }
 "
 }
 
-fn shader_f_src() -> &'static str {
-    "#ifdef GL_ES
+fn shader_f_src(texture_target: GLuint) -> String {
+    let (extension_directive, sampler_type) = if texture_target != gl::TEXTURE_2D {
+        (
+            "#extension GL_OES_EGL_image_external : require\n",
+            "samplerExternalOES",
+        )
+    } else {
+        ("", "sampler2D")
+    };
+
+    format!(
+        "{}
+#ifdef GL_ES
 precision highp float;
 #endif
-varying vec2 v_texCoord;
-uniform sampler2D tex;
-uniform vec3 color;
+varying vec2 v_texcoord;
+uniform {} tex;
 void main()
 {{
-    float alpha = texture2D(tex, v_texCoord).r;
-    gl_FragColor = vec4(color, alpha);
-
-}}"
+    gl_FragColor = texture2D(tex, v_texcoord);
+}}",
+        extension_directive, sampler_type
+    )
 }
