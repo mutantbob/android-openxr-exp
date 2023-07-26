@@ -260,6 +260,7 @@ impl TextMessage {
             model,
             &self.texture,
             &[1.0, 0.5, 0.0],
+            gl::TRIANGLE_STRIP,
             self,
             n_indices,
             gpu_state,

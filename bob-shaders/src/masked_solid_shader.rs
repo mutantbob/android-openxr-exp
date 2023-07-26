@@ -1,5 +1,5 @@
 use crate::GeometryBuffer;
-use gl::types::{GLint, GLsizei};
+use gl::types::{GLenum, GLint, GLsizei};
 use gl_thin::gl_fancy::GPUState;
 use gl_thin::gl_helper::{explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, Texture};
 use gl_thin::linear::XrMatrix4x4f;
@@ -51,6 +51,7 @@ impl MaskedSolidShader {
         model: &XrMatrix4x4f,
         mask: &Texture,
         color: &[f32; 3],
+        draw_mode: GLenum,
         buffers: &dyn GeometryBuffer<AT, IT>,
         n_indices: GLsizei,
         gpu_state: &mut GPUState,
@@ -74,7 +75,7 @@ impl MaskedSolidShader {
 
         let bindings = buffers.activate(gpu_state);
 
-        bindings.draw_elements(gl::TRIANGLE_STRIP, n_indices, 0)?;
+        bindings.draw_elements(draw_mode, n_indices, 0)?;
 
         // unbind
 
