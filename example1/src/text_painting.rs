@@ -80,7 +80,7 @@ pub fn text_to_greyscale_texture(
     Ok(target)
 }
 
-fn render_glyphs_to_grey<'a, 'f: 'a>(
+pub fn render_glyphs_to_grey<'a, 'f: 'a>(
     width: i32,
     height: i32,
     glyphs: impl IntoIterator<Item = &'a PositionedGlyph<'f>>,
@@ -100,7 +100,7 @@ fn render_glyphs_to_grey<'a, 'f: 'a>(
     }
 }
 
-fn render_glyphs_to_rgb<'a, 'f: 'a>(
+pub fn render_glyphs_to_rgb<'a, 'f: 'a>(
     width: i32,
     height: i32,
     glyphs: impl IntoIterator<Item = &'a PositionedGlyph<'f>>,

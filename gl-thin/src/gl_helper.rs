@@ -558,7 +558,17 @@ impl Texture {
         self.bind(gl::TEXTURE_2D)?;
 
         let mut rval = 0;
-        unsafe { gl::GetTexParameterIiv(gl::TEXTURE_2D, gl::TEXTURE_WIDTH, &mut rval) };
+        unsafe { gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut rval) };
+        explode_if_gl_error()?;
+
+        Ok(rval)
+    }
+
+    pub fn get_height(&self) -> Result<GLint, GLErrorWrapper> {
+        self.bind(gl::TEXTURE_2D)?;
+
+        let mut rval = 0;
+        unsafe { gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut rval) };
         explode_if_gl_error()?;
 
         Ok(rval)
@@ -568,11 +578,11 @@ impl Texture {
         self.bind(gl::TEXTURE_2D)?;
 
         let mut width = 0;
-        unsafe { gl::GetTexParameterIiv(gl::TEXTURE_2D, gl::TEXTURE_WIDTH, &mut width) };
+        unsafe { gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width) };
         explode_if_gl_error()?;
 
         let mut height = 0;
-        unsafe { gl::GetTexParameterIiv(gl::TEXTURE_2D, gl::TEXTURE_HEIGHT, &mut height) };
+        unsafe { gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height) };
         explode_if_gl_error()?;
 
         Ok((width, height))
