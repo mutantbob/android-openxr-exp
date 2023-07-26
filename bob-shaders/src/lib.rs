@@ -1,6 +1,7 @@
 use gl_thin::gl_fancy::{BoundBuffers, GPUState};
 
 pub mod flat_color_shader;
+pub mod geometry;
 pub mod masked_solid_shader;
 pub mod raw_texture_shader;
 pub mod sun_phong_shader;
