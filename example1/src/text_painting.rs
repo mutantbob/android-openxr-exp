@@ -33,23 +33,21 @@ pub fn text_to_greyscale_texture(
     }
 
     // let (width, height) = target.get_dimensions()?;
-    let mut target = Texture::new().unwrap();
+    let mut target = Texture::new()?;
 
     if false {
         // this doesn't work on the oculus
         let mut pixel_data = vec![99u8; (width * height) as usize];
         render_glyphs_to_grey(width, height, &glyphs, &mut pixel_data);
-        target
-            .write_pixels(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGB as GLint,
-                width,
-                height,
-                gl::RED,
-                pixel_data.as_slice(),
-            )
-            .unwrap();
+        target.write_pixels_and_generate_mipmap(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGB as GLint,
+            width,
+            height,
+            gl::RED,
+            pixel_data.as_slice(),
+        )?;
     } else {
         let mut pixel_data = vec![0u8; (3 * width * height) as usize];
         render_glyphs_to_rgb(width, height, &glyphs, &mut pixel_data);
@@ -62,20 +60,15 @@ pub fn text_to_greyscale_texture(
             );
         }
 
-        target
-            .write_pixels(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGB as GLint,
-                width,
-                height,
-                gl::RGB,
-                pixel_data.as_slice(),
-            )
-            .unwrap();
-
-        unsafe { gl::GenerateMipmap(gl::TEXTURE_2D) };
-        explode_if_gl_error()?;
+        target.write_pixels_and_generate_mipmap(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGB as GLint,
+            width,
+            height,
+            gl::RGB,
+            pixel_data.as_slice(),
+        )?;
     }
     Ok(target)
 }

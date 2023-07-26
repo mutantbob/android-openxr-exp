@@ -588,6 +588,29 @@ impl Texture {
         Ok((width, height))
     }
 
+    pub fn write_pixels_and_generate_mipmap<T: GLBufferType>(
+        &mut self,
+        target: GLenum,
+        level: GLint,
+        internal_format: GLint,
+        width: GLsizei,
+        height: GLsizei,
+        format: GLenum,
+        pixels: &[T],
+    ) -> Result<(), GLErrorWrapper> {
+        self.write_pixels(
+            target,
+            level,
+            internal_format,
+            width,
+            height,
+            format,
+            pixels,
+        )?;
+        self.generate_mipmap()
+    }
+
+    /// Remember to populate the mipmap by either writing all the different mipmap `level`s or using `self.generate_mipmap()`
     pub fn write_pixels<T: GLBufferType>(
         &mut self,
         target: GLenum,
@@ -622,6 +645,11 @@ impl Texture {
                 pixels.as_ptr() as *const _,
             );
         }
+        explode_if_gl_error()
+    }
+
+    pub fn generate_mipmap(&self) -> Result<(), GLErrorWrapper> {
+        unsafe { gl::GenerateMipmap(gl::TEXTURE_2D) };
         explode_if_gl_error()
     }
 }
