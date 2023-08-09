@@ -1,4 +1,4 @@
-use gl::types::{GLfloat, GLsizei, GLuint};
+use gl::types::{GLfloat, GLint, GLsizei, GLuint};
 use gl_thin::gl_fancy::BoundBuffers;
 use gl_thin::gl_helper::{gl_offset_for, GLBufferType, GLErrorWrapper, Program};
 use gl_thin::linear::XrMatrix4x4f;
@@ -8,6 +8,7 @@ pub struct RawTextureShader {
     pub shader: Program,
     pub shader_attribute_position_location: u32,
     pub shader_attribute_texture_location: u32,
+    pub sul_matrix: GLint,
 }
 
 impl Drop for RawTextureShader {
@@ -22,44 +23,28 @@ impl RawTextureShader {
             shader.get_attribute_location("a_position")? as u32;
         let shader_attribute_texture_location = shader.get_attribute_location("a_texcoord")? as u32;
 
+        let sul_matrix = shader.get_uniform_location("u_matrix")? as GLint;
+
         Ok(RawTextureShader {
             shader,
             shader_attribute_position_location,
             shader_attribute_texture_location,
+            sul_matrix,
         })
     }
 
     pub fn set_params(
         &self,
-        projection_matrix: &XrMatrix4x4f,
-        inverse_view_matrix: &XrMatrix4x4f,
-        model_matrix: &XrMatrix4x4f,
+        matrix: &XrMatrix4x4f,
         texture_image_unit: u32,
     ) -> Result<(), GLErrorWrapper> {
         self.shader.use_()?;
         self.set_texture(texture_image_unit)?;
-        self.set_u_model(model_matrix)?;
-        self.set_u_projection(projection_matrix)?;
-        self.set_u_view(inverse_view_matrix)
+        self.set_u_matrix(matrix)
     }
 
-    fn set_u_view(&self, inverse_view_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
-        self.shader.set_mat4u(
-            self.shader.get_uniform_location("u_view")? as i32,
-            inverse_view_matrix,
-        )
-    }
-
-    fn set_u_projection(&self, projection_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
-        self.shader.set_mat4u(
-            self.shader.get_uniform_location("u_projection")? as i32,
-            projection_matrix,
-        )
-    }
-
-    fn set_u_model(&self, matrix: &[f32; 16]) -> Result<(), GLErrorWrapper> {
-        self.shader
-            .set_mat4u(self.shader.get_uniform_location("u_model")? as i32, matrix)
+    fn set_u_matrix(&self, inverse_view_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
+        self.shader.set_mat4u(self.sul_matrix, inverse_view_matrix)
     }
 
     fn set_texture(&self, index: u32) -> Result<(), GLErrorWrapper> {
@@ -101,19 +86,12 @@ impl RawTextureShader {
     #[allow(clippy::too_many_arguments)]
     pub fn draw2<AT, IT: GLBufferType>(
         &self,
-        projection_matrix: &XrMatrix4x4f,
-        inverse_view_matrix: &XrMatrix4x4f,
-        model_matrix: &[f32; 16],
+        matrix: &XrMatrix4x4f,
         texture_image_unit: u32,
         gl_ram: &BoundBuffers<AT, IT>,
         indices_count: GLsizei,
     ) -> Result<(), GLErrorWrapper> {
-        self.set_params(
-            projection_matrix,
-            inverse_view_matrix,
-            model_matrix,
-            texture_image_unit,
-        )?;
+        self.set_params(matrix, texture_image_unit)?;
 
         self.draw(gl_ram, indices_count)
     }
@@ -128,12 +106,10 @@ fn shader_v_src() -> &'static str {
 attribute vec4 a_position;
 attribute vec2 a_texcoord;
 varying vec2 v_texcoord;
-uniform mat4 u_model;
-uniform mat4 u_view;
-uniform mat4 u_projection;
+uniform mat4 u_matrix;
 void main()
 {
-    gl_Position = u_projection * u_view * u_model * a_position;
+    gl_Position = u_matrix * a_position;
     v_texcoord = a_texcoord;
 }
 "

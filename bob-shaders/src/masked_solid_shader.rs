@@ -9,9 +9,7 @@ pub struct MaskedSolidShader {
     pub program: Program,
     pub sal_position: u32,
     pub sal_tex_coord: u32,
-    pub sul_projection: u32,
-    pub sul_view: u32,
-    pub sul_model: u32,
+    pub sul_matrix: u32,
     pub sul_tex: u32,
 }
 
@@ -22,23 +20,19 @@ impl MaskedSolidShader {
         let sal_position = program.get_attribute_location("a_position")?;
         let sal_tex_coord = program.get_attribute_location("a_texCoord")?;
 
-        let sul_projection = program.get_uniform_location("u_projection")?;
-        let sul_view = program.get_uniform_location("u_view")?;
-        let sul_model = program.get_uniform_location("u_model")?;
+        let sul_matrix = program.get_uniform_location("u_matrix")?;
         let sul_tex = program.get_uniform_location("tex")?;
 
         debug!(
-            "attribute, uniform locations {} {}  {} {} {} {}",
-            sal_position, sal_tex_coord, sul_projection, sul_view, sul_model, sul_tex,
+            "attribute, uniform locations {} {}  {} {} ",
+            sal_position, sal_tex_coord, sul_matrix, sul_tex,
         );
 
         Ok(Self {
             program,
             sal_position,
             sal_tex_coord,
-            sul_projection,
-            sul_view,
-            sul_model,
+            sul_matrix,
             sul_tex,
         })
     }
@@ -46,9 +40,7 @@ impl MaskedSolidShader {
     #[allow(clippy::too_many_arguments)]
     pub fn draw<AT, IT: GLBufferType>(
         &self,
-        projection: &XrMatrix4x4f,
-        view: &XrMatrix4x4f,
-        model: &XrMatrix4x4f,
+        matrix: &XrMatrix4x4f,
         mask: &Texture,
         color: &[f32; 3],
         draw_mode: GLenum,
@@ -58,9 +50,7 @@ impl MaskedSolidShader {
     ) -> Result<(), GLErrorWrapper> {
         self.program.use_()?;
 
-        self.set_u_projection(projection)?;
-        self.set_u_view(view)?;
-        self.set_u_model(model)?;
+        self.set_u_matrix(matrix)?;
 
         self.set_color(color)?;
 
@@ -97,17 +87,8 @@ impl MaskedSolidShader {
             .set_uniform_3f("color", color[0], color[1], color[2])
     }
 
-    fn set_u_view(&self, matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
-        self.program.set_mat4u(self.sul_view as GLint, matrix)
-    }
-
-    fn set_u_projection(&self, projection_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
-        self.program
-            .set_mat4u(self.sul_projection as GLint, projection_matrix)
-    }
-
-    fn set_u_model(&self, matrix: &[f32; 16]) -> Result<(), GLErrorWrapper> {
-        self.program.set_mat4u(self.sul_model as GLint, matrix)
+    fn set_u_matrix(&self, matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
+        self.program.set_mat4u(self.sul_matrix as GLint, matrix)
     }
 }
 
@@ -118,14 +99,11 @@ attribute vec2 a_texCoord;
 
 varying vec2 v_texCoord;
 
-uniform mat4 u_model;
-uniform mat4 u_view;
-uniform mat4 u_projection;
+uniform mat4 u_matrix;
 
 void main()
 {
-    mat4 pvm = u_projection * u_view * u_model;
-    gl_Position = pvm * a_position;
+    gl_Position = u_matrix * a_position;
     v_texCoord = a_texCoord;
 }
 "

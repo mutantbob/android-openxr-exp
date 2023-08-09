@@ -1,5 +1,5 @@
 use gl::types::GLint;
-use gl_thin::gl_helper::{explode_if_gl_error, GLErrorWrapper, Texture};
+use gl_thin::gl_helper::{GLErrorWrapper, Texture};
 use rusttype::{point, Font, PositionedGlyph, Scale};
 
 pub fn text_to_greyscale_texture(

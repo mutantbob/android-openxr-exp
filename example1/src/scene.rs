@@ -5,8 +5,8 @@ use gl_thin::linear::{
     xr_matrix4x4f_create_from_quaternion, xr_matrix4x4f_create_projection_fov,
     xr_matrix4x4f_create_scale, xr_matrix4x4f_create_translation,
     xr_matrix4x4f_create_translation_rotation_scale, xr_matrix4x4f_create_translation_v,
-    xr_matrix4x4f_identity, xr_matrix4x4f_invert_rigid_body, xr_matrix4x4f_multiply, GraphicsAPI,
-    XrFovf, XrQuaternionf, XrVector3f,
+    xr_matrix4x4f_invert_rigid_body, xr_matrix4x4f_multiply, GraphicsAPI, XrFovf, XrQuaternionf,
+    XrVector3f,
 };
 use openxr::SpaceLocation;
 use openxr_sys::Time;
@@ -59,7 +59,7 @@ impl MyScene {
 
         //
 
-        let matrix = {
+        let matrix_pv = {
             let projection_matrix = xr_matrix4x4f_create_projection_fov(
                 GraphicsAPI::GraphicsOpenGL,
                 fov,
@@ -85,7 +85,7 @@ impl MyScene {
             let model = xr_matrix4x4f_create_translation(1.0, 0.0, -2.0);
             let model = xr_matrix4x4f_multiply(&model, &rotation_matrix);
             self.rainbow_triangle
-                .paint_color_triangle(&matrix, &model, gpu_state)?;
+                .paint_color_triangle(&xr_matrix4x4f_multiply(&matrix_pv, &model), gpu_state)?;
         }
 
         if let Some(controller_1) = controller_1 {
@@ -101,11 +101,9 @@ impl MyScene {
                 let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);
                 xr_matrix4x4f_multiply(&translate, &model)
             };
-            let identity = xr_matrix4x4f_identity();
+            let matrix = xr_matrix4x4f_multiply(&matrix_pv, &model);
             self.suzanne.draw(
                 &matrix,
-                &identity,
-                &model,
                 &[0.0, 1.0, 0.0],
                 &[0.0, 0.0, 1.0],
                 self.suzanne.index_count(),
@@ -123,14 +121,9 @@ impl MyScene {
                 // let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);
                 xr_matrix4x4f_multiply(&translate, &model)
             };
-            let identity = xr_matrix4x4f_identity();
-            self.text_message.draw(
-                &matrix,
-                &identity,
-                &model,
-                self.text_message.index_count(),
-                gpu_state,
-            )
+            let matrix = xr_matrix4x4f_multiply(&matrix_pv, &model);
+            self.text_message
+                .draw(&matrix, self.text_message.index_count(), gpu_state)
         }
     }
 }

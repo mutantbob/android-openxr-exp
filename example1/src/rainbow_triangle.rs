@@ -8,7 +8,7 @@ use gl_thin::gl_fancy::{BoundBuffers, BoundBuffersMut, GPUState, VertexBufferBun
 use gl_thin::gl_helper::{
     self, explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, Texture,
 };
-use gl_thin::linear::{xr_matrix4x4f_multiply, XrMatrix4x4f};
+use gl_thin::linear::XrMatrix4x4f;
 use std::mem::size_of;
 
 //
@@ -54,16 +54,13 @@ impl<'a> RainbowTriangle<'a> {
 
     pub fn paint_color_triangle(
         &self,
-        pv_matrix: &[f32; 16],
-        model: &XrMatrix4x4f,
+        matrix: &XrMatrix4x4f,
         gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
         let program = &self.program.program;
         program.use_().unwrap();
 
-        let matrix = xr_matrix4x4f_multiply(pv_matrix, model);
-
-        self.program.set_params(&matrix);
+        self.program.set_params(matrix);
 
         let binding = self.buffers.bind(gpu_state)?;
 
@@ -156,24 +153,14 @@ impl Suzanne {
     #[allow(clippy::too_many_arguments)]
     pub fn draw(
         &self,
-        projection: &XrMatrix4x4f,
-        view: &[f32; 16],
-        model: &[f32; 16],
+        matrix: &XrMatrix4x4f,
         sun_direction: &[f32; 3],
         color: &[f32; 3],
         n_indices: GLsizei,
         gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
-        self.phong.draw(
-            projection,
-            view,
-            model,
-            sun_direction,
-            color,
-            self,
-            n_indices,
-            gpu_state,
-        )
+        self.phong
+            .draw(matrix, sun_direction, color, self, n_indices, gpu_state)
     }
 }
 
@@ -248,16 +235,12 @@ impl TextMessage {
     #[allow(clippy::too_many_arguments)]
     pub fn draw(
         &self,
-        projection: &XrMatrix4x4f,
-        view: &[f32; 16],
-        model: &[f32; 16],
+        matrix: &XrMatrix4x4f,
         n_indices: GLsizei,
         gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
         self.program.draw(
-            projection,
-            view,
-            model,
+            matrix,
             &self.texture,
             &[1.0, 0.5, 0.0],
             gl::TRIANGLE_STRIP,

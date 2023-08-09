@@ -1,8 +1,8 @@
+use crate::GeometryBuffer;
 use gl::types::{GLint, GLsizei};
 use gl_thin::gl_fancy::{BoundBuffers, GPUState};
 use gl_thin::gl_helper::{GLBufferType, GLErrorWrapper, Program};
 use gl_thin::linear::XrMatrix4x4f;
-use crate::GeometryBuffer;
 
 //
 
@@ -10,9 +10,7 @@ pub struct SunPhongShader {
     pub program: Program,
     pub sal_position: u32,
     pub sal_normal: u32,
-    pub sul_projection: u32,
-    pub sul_view: u32,
-    pub sul_model: u32,
+    pub sul_matrix: u32,
 }
 
 impl SunPhongShader {
@@ -22,35 +20,27 @@ impl SunPhongShader {
         let sal_position = program.get_attribute_location("a_position")?;
         let sal_normal = program.get_attribute_location("a_normal")?;
 
-        let sul_projection = program.get_uniform_location("u_projection")?;
-        let sul_view = program.get_uniform_location("u_view")?;
-        let sul_model = program.get_uniform_location("u_model")?;
+        let sul_matrix = program.get_uniform_location("u_matrix")?;
 
         log::debug!(
-            "attribute, uniform locations {} {}  {} {} {}",
+            "attribute, uniform locations {} {}  {}",
             sal_position,
             sal_normal,
-            sul_projection,
-            sul_view,
-            sul_model
+            sul_matrix,
         );
 
         Ok(Self {
             program,
             sal_position,
             sal_normal,
-            sul_projection,
-            sul_view,
-            sul_model,
+            sul_matrix,
         })
     }
 
     #[allow(clippy::too_many_arguments)]
     pub fn draw<AT, IT: GLBufferType>(
         &self,
-        projection: &XrMatrix4x4f,
-        view: &XrMatrix4x4f,
-        model: &XrMatrix4x4f,
+        matrix: &XrMatrix4x4f,
         sun_direction: &[f32; 3],
         color: &[f32; 3],
         buffers: &dyn GeometryBuffer<AT, IT>,
@@ -59,9 +49,7 @@ impl SunPhongShader {
     ) -> Result<(), GLErrorWrapper> {
         self.program.use_()?;
 
-        self.set_u_projection(projection)?;
-        self.set_u_view(view)?;
-        self.set_u_model(model)?;
+        self.set_u_matrix(matrix)?;
 
         self.set_sun_direction(sun_direction)?;
         self.set_color(color)?;
@@ -107,17 +95,9 @@ impl SunPhongShader {
         Ok(())
     }
 
-    fn set_u_view(&self, matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
-        self.program.set_mat4u(self.sul_view as GLint, matrix)
-    }
-
-    fn set_u_projection(&self, projection_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
+    fn set_u_matrix(&self, projection_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
         self.program
-            .set_mat4u(self.sul_projection as GLint, projection_matrix)
-    }
-
-    fn set_u_model(&self, matrix: &[f32; 16]) -> Result<(), GLErrorWrapper> {
-        self.program.set_mat4u(self.sul_model as GLint, matrix)
+            .set_mat4u(self.sul_matrix as GLint, projection_matrix)
     }
 }
 
@@ -128,15 +108,12 @@ attribute vec3 a_normal;
 
 varying vec3 v_normal;
 
-uniform mat4 u_model;
-uniform mat4 u_view;
-uniform mat4 u_projection;
+uniform mat4 u_matrix;
 
 void main()
 {
-    mat4 pvm = u_projection * u_view * u_model;
-    gl_Position = pvm * a_position;
-    v_normal = mat3(u_model) * a_normal;
+    gl_Position = u_matrix * a_position;
+    v_normal = mat3(u_matrix) * a_normal;
 }
 "
 }
