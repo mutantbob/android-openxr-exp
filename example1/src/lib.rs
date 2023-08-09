@@ -23,6 +23,8 @@ pub mod xr_input;
 
 pub trait Drawable {
     fn handle_events_and_draw(&mut self);
+
+    fn suspend(&mut self);
 }
 
 pub enum AppState<T: Drawable> {
@@ -68,6 +70,9 @@ fn event_loop_one_pass<T: Drawable, X: std::fmt::Debug, E: std::fmt::Debug>(
         }
         Event::Suspended => {
             log::debug!("suspend");
+            if let AppState::Active(app) = app {
+                app.suspend();
+            }
             // log::trace!("Suspended, dropping surface state...");
             // app.surface_state = None;
             *app = AppState::Paused;

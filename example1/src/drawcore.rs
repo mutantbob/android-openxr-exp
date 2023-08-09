@@ -87,7 +87,16 @@ impl Drawable for ActiveRenderer {
 
         //
 
-        self.draw_inner().unwrap();
+        match self.draw_inner() {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("malfunction during draw_inner() {}", e);
+            }
+        };
+    }
+
+    fn suspend(&mut self) {
+        self.openxr.xr_session.request_exit().unwrap();
     }
 }
 
