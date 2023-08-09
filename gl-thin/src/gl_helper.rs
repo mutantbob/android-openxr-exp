@@ -666,8 +666,8 @@ impl Drop for Texture {
 //
 
 pub struct TextureWithTarget {
-    texture: Texture,
-    target: GLenum,
+    pub texture: Texture,
+    pub target: GLenum,
 }
 
 impl TextureWithTarget {

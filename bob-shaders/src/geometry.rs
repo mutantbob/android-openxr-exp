@@ -10,7 +10,7 @@ pub struct UVRectangle {
 }
 
 impl UVRectangle {
-    pub fn uv_rect(&self) -> Vec<f32> {
+    pub fn as_xyuv(&self) -> Vec<f32> {
         let xyuv = vec![
             self.min_x, self.min_y, self.min_u, self.max_v, //
             self.max_x, self.min_y, self.max_u, self.max_v, //
