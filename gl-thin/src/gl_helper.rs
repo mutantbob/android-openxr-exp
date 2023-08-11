@@ -404,8 +404,25 @@ impl Program {
         explode_if_gl_error()
     }
 
+    pub fn set_uniform_1f(&self, location: GLint, v0: GLfloat) -> Result<(), GLErrorWrapper> {
+        unsafe { gl::Uniform1f(location, v0) }
+        explode_if_gl_error()
+    }
+
     pub fn set_uniform_3f(&self, name: &str, x: f32, y: f32, z: f32) -> Result<(), GLErrorWrapper> {
         unsafe { gl::Uniform3f(self.get_uniform_location(name)? as GLint, x, y, z) }
+        explode_if_gl_error()
+    }
+
+    pub fn set_uniform_4f(
+        &self,
+        location: GLint,
+        x: f32,
+        y: f32,
+        z: f32,
+        a: f32,
+    ) -> Result<(), GLErrorWrapper> {
+        unsafe { gl::Uniform4f(location, x, y, z, a) }
         explode_if_gl_error()
     }
 
