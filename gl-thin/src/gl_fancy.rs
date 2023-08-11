@@ -281,7 +281,7 @@ pub struct VertexBufferBundle<'a, AT, IT> {
 }
 
 impl<'a, AT, IT> VertexBufferBundle<'a, AT, IT> {
-    pub fn new() -> Result<Self, GLErrorWrapper> {
+    pub fn incomplete() -> Result<Self, GLErrorWrapper> {
         Ok(Self {
             vertex_array: VertexArray::new()?,
             vertex_buffer: Buffer::new()?,
@@ -335,7 +335,7 @@ impl<'a, AT: GLBufferType, IT: GLBufferType> VertexBufferBundle<'a, AT, IT> {
     /// # use gl_thin::gl_fancy::{GPUState, VertexBufferBundle};
     /// # use gl_thin::gl_helper::GLErrorWrapper;
     /// # fn x(gpu_state: &mut GPUState, xyzuv:&[f32], indices:&[u16], program: &FlatColorShader) {
-    /// let vbb = VertexBufferBundle::new_loaded(
+    /// let vbb = VertexBufferBundle::new(
     ///                 gpu_state,
     ///                 xyzuv.into(),
     ///                 indices.into(),
@@ -350,14 +350,14 @@ impl<'a, AT: GLBufferType, IT: GLBufferType> VertexBufferBundle<'a, AT, IT> {
     ///     bound.draw_elements(gl::TRIANGLES, n_indices, 0)?;
     /// # }
     ///```
-    pub fn new_loaded<'i>(
+    pub fn new<'i>(
         gpu_state: &mut GPUState,
         vertex_data: BufferOwnership<'a, AT>,
         index_data: BufferOwnership<'a, IT>,
         vertex_data_stride: GLsizei,
         attributes: impl IntoIterator<Item = &'i (GLuint, GLint, GLsizei)>,
     ) -> Result<Self, GLErrorWrapper> {
-        let mut rval = Self::new()?;
+        let mut rval = Self::incomplete()?;
         {
             let mut bound = rval.bind_mut(gpu_state)?;
             bound.vertex_buffer.load_any(vertex_data)?;

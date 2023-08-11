@@ -25,7 +25,7 @@ impl<'a> RainbowTriangle<'a> {
 
         program.program.use_()?;
 
-        let mut buffers = VertexBufferBundle::<'static, GLfloat, u8>::new()?;
+        let mut buffers = VertexBufferBundle::<'static, GLfloat, u8>::incomplete()?;
         let indices_len = {
             let mut bindings = buffers.bind_mut(gpu_state)?;
             Self::configure_vertex_attributes(&bindings, &program.program, 2)?;
@@ -125,7 +125,7 @@ impl Suzanne {
         let phong = SunPhongShader::new()?;
 
         let indices = &crate::suzanne::TRIANGLE_INDICES;
-        let buffers = VertexBufferBundle::new_loaded(
+        let buffers = VertexBufferBundle::new(
             gpu_state,
             (&crate::suzanne::XYZABC).into(),
             (indices).into(),
@@ -199,7 +199,7 @@ impl TextMessage {
         let program = MaskedSolidShader::new()?;
 
         let buffers = if false {
-            let mut buffers = VertexBufferBundle::new()?;
+            let mut buffers = VertexBufferBundle::incomplete()?;
             let mut binding = buffers.bind_mut(gpu_state)?;
 
             binding.vertex_buffer.load_owned(xyuv)?;
@@ -213,7 +213,7 @@ impl TextMessage {
             drop(binding);
             buffers
         } else {
-            VertexBufferBundle::new_loaded(
+            VertexBufferBundle::new(
                 gpu_state,
                 xyuv.into(),
                 indices.into(),
