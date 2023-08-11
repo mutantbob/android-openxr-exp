@@ -1,21 +1,21 @@
 pub struct UVRectangle {
-    pub min_x: f32,
-    pub max_x: f32,
-    pub min_y: f32,
-    pub max_y: f32,
-    pub min_u: f32,
-    pub max_u: f32,
-    pub min_v: f32,
-    pub max_v: f32,
+    pub x1: f32,
+    pub x2: f32,
+    pub y1: f32,
+    pub y2: f32,
+    pub u1: f32,
+    pub u2: f32,
+    pub v1: f32,
+    pub v2: f32,
 }
 
 impl UVRectangle {
     pub fn as_xyuv(&self) -> Vec<f32> {
         let xyuv = vec![
-            self.min_x, self.min_y, self.min_u, self.min_v, //
-            self.max_x, self.min_y, self.max_u, self.min_v, //
-            self.min_x, self.max_y, self.min_u, self.max_v, //
-            self.max_x, self.max_y, self.max_u, self.max_v,
+            self.x1, self.y1, self.u1, self.v1, //
+            self.x2, self.y1, self.u2, self.v1, //
+            self.x1, self.y2, self.u1, self.v2, //
+            self.x2, self.y2, self.u2, self.v2,
         ];
         xyuv
     }
