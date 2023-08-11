@@ -49,10 +49,7 @@ impl SunPhongShader {
     ) -> Result<(), GLErrorWrapper> {
         self.program.use_()?;
 
-        self.set_u_matrix(matrix)?;
-
-        self.set_sun_direction(sun_direction)?;
-        self.set_color(color)?;
+        self.set_parameters(matrix, sun_direction, color)?;
 
         let bindings = buffers.activate(gpu_state);
 
@@ -66,6 +63,19 @@ impl SunPhongShader {
             gl::DisableVertexAttribArray(self.sal_position);
         }
 
+        Ok(())
+    }
+
+    pub fn set_parameters(
+        &self,
+        matrix: &XrMatrix4x4f,
+        sun_direction: &[f32; 3],
+        color: &[f32; 3],
+    ) -> Result<(), GLErrorWrapper> {
+        self.set_u_matrix(matrix)?;
+
+        self.set_sun_direction(sun_direction)?;
+        self.set_color(color)?;
         Ok(())
     }
 
