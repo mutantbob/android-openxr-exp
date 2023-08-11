@@ -150,11 +150,41 @@ impl Drop for VertexArray {
 
 //
 
-enum BufferOwnership<'a, T> {
+pub enum BufferOwnership<'a, T> {
     Reference(&'a [T]),
     Owned(Vec<T>),
     None,
 }
+
+impl<'a, T> BufferOwnership<'a, T> {
+    pub fn as_slice<'b: 'a>(&'b self) -> &'a [T] {
+        match self {
+            BufferOwnership::Reference(slice) => slice,
+            BufferOwnership::Owned(vec) => vec.as_slice(),
+            BufferOwnership::None => panic!("called as_slice() on None"),
+        }
+    }
+}
+
+impl<'a, T> From<&'a [T]> for BufferOwnership<'a, T> {
+    fn from(value: &'a [T]) -> Self {
+        BufferOwnership::Reference(value)
+    }
+}
+
+impl<'a, T, const N: usize> From<&'a [T; N]> for BufferOwnership<'a, T> {
+    fn from(value: &'a [T; N]) -> Self {
+        BufferOwnership::Reference(value)
+    }
+}
+
+impl<'a, T> From<Vec<T>> for BufferOwnership<'a, T> {
+    fn from(value: Vec<T>) -> Self {
+        BufferOwnership::Owned(value)
+    }
+}
+
+//
 
 pub struct Buffer<'a, B, T> {
     handle: GLuint,
@@ -183,6 +213,21 @@ impl<'a, B, T> Drop for Buffer<'a, B, T> {
 }
 
 impl<'a, B: BufferTarget, T> Buffer<'a, B, T> {
+    pub unsafe fn load_any(&mut self, value: BufferOwnership<'a, T>) -> Result<(), GLErrorWrapper> {
+        self.data = value;
+        let slice = self.data.as_slice();
+        let byte_count: GLsizeiptr = slice.len() as GLsizeiptr * size_of::<T>() as GLsizeiptr;
+        unsafe {
+            gl::BufferData(
+                B::TARGET,
+                byte_count,
+                slice.as_ptr() as *const c_void,
+                gl::STATIC_DRAW,
+            )
+        }
+        explode_if_gl_error()
+    }
+
     pub fn load(&mut self, values: &'a [T]) -> Result<(), GLErrorWrapper> {
         self.bind()?;
         let byte_count: GLsizeiptr = values.len() as GLsizeiptr * size_of::<T>() as GLsizeiptr;
@@ -199,7 +244,7 @@ impl<'a, B: BufferTarget, T> Buffer<'a, B, T> {
     }
 
     pub fn load_owned(&mut self, values: Vec<T>) -> Result<(), GLErrorWrapper> {
-        self.bind()?;
+        self.bind()?; // XXX move this method to a new BoundBuffer type
         let byte_count: GLsizeiptr = values.len() as GLsizeiptr * size_of::<T>() as GLsizeiptr;
         unsafe {
             gl::BufferData(

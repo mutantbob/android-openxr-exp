@@ -27,7 +27,7 @@ impl<'a> RainbowTriangle<'a> {
 
         let mut buffers = VertexBufferBundle::<'static, GLfloat, u8>::new()?;
         let indices_len = {
-            let bindings = buffers.bind_mut(gpu_state)?;
+            let mut bindings = buffers.bind_mut(gpu_state)?;
             Self::configure_vertex_attributes(&bindings, &program.program, 2)?;
 
             const COLOR_TRIANGLE: [GLfloat; 3 * 5] = [
@@ -122,22 +122,16 @@ pub struct Suzanne {
 
 impl Suzanne {
     pub fn new(gpu_state: &mut GPUState) -> Result<Self, GLErrorWrapper> {
-        let mut buffers = VertexBufferBundle::new()?;
-        let binding = buffers.bind_mut(gpu_state)?;
-
-        let xyzabc = &crate::suzanne::XYZABC;
-        binding.vertex_buffer.load(xyzabc)?;
+        let phong = SunPhongShader::new()?;
 
         let indices = &crate::suzanne::TRIANGLE_INDICES;
-        binding.index_buffer.load(indices)?;
-
-        let phong = SunPhongShader::new()?;
-        if true {
-            // buffers.bind_primitive()?; // is this redundant ? XXX
-            phong.rig_attribute_arrays(&binding.plain())?;
-        }
-
-        drop(binding);
+        let buffers = VertexBufferBundle::new_loaded(
+            gpu_state,
+            (&crate::suzanne::XYZABC).into(),
+            (indices).into(),
+            6,
+            &[(phong.sal_position, 3, 0), (phong.sal_normal, 3, 3)],
+        )?;
 
         Ok(Self {
             phong,
@@ -183,9 +177,6 @@ pub struct TextMessage {
 
 impl TextMessage {
     pub fn new(gpu_state: &mut GPUState) -> Result<Self, GLErrorWrapper> {
-        let mut buffers = VertexBufferBundle::new()?;
-        let binding = buffers.bind_mut(gpu_state)?;
-
         let tex_width = 256;
         let tex_height = 64;
         let aspect = tex_width as f32 / tex_height as f32;
@@ -203,18 +194,33 @@ impl TextMessage {
             xmin, YMAX, Z, UMIN, UMIN, //
             xmax, YMAX, Z, UMAX, UMIN, //
         ];
-        binding.vertex_buffer.load_owned(xyuv)?;
-
         let indices = &[0, 1, 2, 3];
-        binding.index_buffer.load(indices)?;
 
         let program = MaskedSolidShader::new()?;
 
-        program.program.use_()?;
-        binding.rig_one_attribute(program.sal_position, 3, 5, 0)?;
-        binding.rig_one_attribute(program.sal_tex_coord, 2, 5, 3)?;
+        let buffers = if false {
+            let mut buffers = VertexBufferBundle::new()?;
+            let mut binding = buffers.bind_mut(gpu_state)?;
 
-        drop(binding);
+            binding.vertex_buffer.load_owned(xyuv)?;
+
+            binding.index_buffer.load(indices)?;
+
+            program.program.use_()?; // XXX is this really necessary?
+            binding.rig_one_attribute(program.sal_position, 3, 5, 0)?;
+            binding.rig_one_attribute(program.sal_tex_coord, 2, 5, 3)?;
+
+            drop(binding);
+            buffers
+        } else {
+            VertexBufferBundle::new_loaded(
+                gpu_state,
+                xyuv.into(),
+                indices.into(),
+                3 + 2,
+                &[(program.sal_position, 3, 0), (program.sal_tex_coord, 2, 3)],
+            )?
+        };
 
         let texture =
             text_painting::text_to_greyscale_texture(tex_width, tex_height, 66.0, "Hail Bob!")?;
