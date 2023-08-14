@@ -195,6 +195,38 @@ impl From<[f32; 16]> for XrMatrix4x4f {
     }
 }
 
+/*
+#[rustfmt::skip]
+impl_op_ex!(* |a: &XrMatrix4x4f, b: &XrMatrix4x4f| -> XrMatrix4x4f { xr_matrix4x4f_multiply(a, b) });*/
+impl<'a, 'b> std::ops::Mul<&'a XrMatrix4x4f> for &'b XrMatrix4x4f {
+    type Output = XrMatrix4x4f;
+
+    fn mul(self, rhs: &XrMatrix4x4f) -> Self::Output {
+        xr_matrix4x4f_multiply(self, rhs)
+    }
+}
+impl<'a> std::ops::Mul<XrMatrix4x4f> for &'a XrMatrix4x4f {
+    type Output = XrMatrix4x4f;
+
+    fn mul(self, rhs: XrMatrix4x4f) -> Self::Output {
+        xr_matrix4x4f_multiply(self, &rhs)
+    }
+}
+impl<'a> std::ops::Mul<&'a XrMatrix4x4f> for XrMatrix4x4f {
+    type Output = XrMatrix4x4f;
+
+    fn mul(self, rhs: &XrMatrix4x4f) -> Self::Output {
+        xr_matrix4x4f_multiply(&self, rhs)
+    }
+}
+impl std::ops::Mul<XrMatrix4x4f> for XrMatrix4x4f {
+    type Output = XrMatrix4x4f;
+
+    fn mul(self, rhs: XrMatrix4x4f) -> Self::Output {
+        xr_matrix4x4f_multiply(&self, &rhs)
+    }
+}
+
 #[rustfmt::skip]
 pub fn xr_matrix4x4f_identity() -> XrMatrix4x4f {
     [
@@ -322,9 +354,7 @@ pub fn xr_matrix4x4f_create_translation_rotation_scale(
     let translation_matrix =
         xr_matrix4x4f_create_translation(translation.x, translation.y, translation.z);
 
-    let combined_matrix = xr_matrix4x4f_multiply(&rotation_matrix, &scale_matrix);
-
-    xr_matrix4x4f_multiply(&translation_matrix, &combined_matrix)
+    translation_matrix * rotation_matrix * scale_matrix
 }
 
 pub fn xr_matrix4x4f_create_translation(dx: f32, dy: f32, dz: f32) -> XrMatrix4x4f {
