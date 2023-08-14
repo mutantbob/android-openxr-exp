@@ -198,6 +198,7 @@ impl From<[f32; 16]> for XrMatrix4x4f {
 /*
 #[rustfmt::skip]
 impl_op_ex!(* |a: &XrMatrix4x4f, b: &XrMatrix4x4f| -> XrMatrix4x4f { xr_matrix4x4f_multiply(a, b) });*/
+
 impl<'a, 'b> std::ops::Mul<&'a XrMatrix4x4f> for &'b XrMatrix4x4f {
     type Output = XrMatrix4x4f;
 
@@ -205,6 +206,7 @@ impl<'a, 'b> std::ops::Mul<&'a XrMatrix4x4f> for &'b XrMatrix4x4f {
         xr_matrix4x4f_multiply(self, rhs)
     }
 }
+
 impl<'a> std::ops::Mul<XrMatrix4x4f> for &'a XrMatrix4x4f {
     type Output = XrMatrix4x4f;
 
@@ -212,6 +214,7 @@ impl<'a> std::ops::Mul<XrMatrix4x4f> for &'a XrMatrix4x4f {
         xr_matrix4x4f_multiply(self, &rhs)
     }
 }
+
 impl<'a> std::ops::Mul<&'a XrMatrix4x4f> for XrMatrix4x4f {
     type Output = XrMatrix4x4f;
 
@@ -219,11 +222,28 @@ impl<'a> std::ops::Mul<&'a XrMatrix4x4f> for XrMatrix4x4f {
         xr_matrix4x4f_multiply(&self, rhs)
     }
 }
+
 impl std::ops::Mul<XrMatrix4x4f> for XrMatrix4x4f {
     type Output = XrMatrix4x4f;
 
     fn mul(self, rhs: XrMatrix4x4f) -> Self::Output {
         xr_matrix4x4f_multiply(&self, &rhs)
+    }
+}
+
+impl std::ops::Mul<f32> for XrMatrix4x4f {
+    type Output = XrMatrix4x4f;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        self * xr_matrix4x4f_create_scale(rhs, rhs, rhs)
+    }
+}
+
+impl std::ops::Mul<XrMatrix4x4f> for f32 {
+    type Output = XrMatrix4x4f;
+
+    fn mul(self, rhs: XrMatrix4x4f) -> Self::Output {
+        xr_matrix4x4f_create_scale(self, self, self) * rhs
     }
 }
 
