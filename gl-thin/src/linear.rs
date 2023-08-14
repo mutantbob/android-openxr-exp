@@ -2,7 +2,10 @@
 
 use openxr_sys::{Fovf, Quaternionf, Vector3f};
 
-pub type XrMatrix4x4f = [f32; 16];
+#[derive(Copy, Clone, Debug)]
+pub struct XrMatrix4x4f {
+    m: [f32; 16],
+}
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 #[repr(C)]
@@ -176,6 +179,22 @@ impl std::ops::Mul for XrQuaternionf {
 
 //
 
+impl XrMatrix4x4f {
+    pub fn new(m: [f32; 16]) -> Self {
+        XrMatrix4x4f { m }
+    }
+
+    pub fn slice(&self) -> &[f32; 16] {
+        &self.m
+    }
+}
+
+impl From<[f32; 16]> for XrMatrix4x4f {
+    fn from(value: [f32; 16]) -> Self {
+        XrMatrix4x4f::new(value)
+    }
+}
+
 #[rustfmt::skip]
 pub fn xr_matrix4x4f_identity() -> XrMatrix4x4f {
     [
@@ -183,7 +202,7 @@ pub fn xr_matrix4x4f_identity() -> XrMatrix4x4f {
         0.0, 1.0, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
         0.0, 0.0, 0.0, 1.0,
-    ]
+    ].into()
 }
 
 pub fn xr_matrix4x4f_create_projection_fov(
@@ -262,6 +281,7 @@ pub fn xr_matrix4x4f_create_projection(
         [
             m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15,
         ]
+        .into()
     } else {
         // normal projection
         let m0 = 2.0 / tan_angle_width;
@@ -286,6 +306,7 @@ pub fn xr_matrix4x4f_create_projection(
         [
             m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15,
         ]
+        .into()
     }
 }
 
@@ -310,6 +331,7 @@ pub fn xr_matrix4x4f_create_translation(dx: f32, dy: f32, dz: f32) -> XrMatrix4x
     [
         1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, dx, dy, dz, 1.0,
     ]
+    .into()
 }
 
 pub fn xr_matrix4x4f_create_translation_v(xyz: &Vector3f) -> XrMatrix4x4f {
@@ -354,77 +376,83 @@ pub fn xr_matrix4x4f_create_from_quaternion(quat: &XrQuaternionf) -> XrMatrix4x4
     [
         m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15,
     ]
+    .into()
 }
 
 pub fn xr_matrix4x4f_create_scale(x: f32, y: f32, z: f32) -> XrMatrix4x4f {
     [
         x, 0.0, 0.0, 0.0, 0.0, y, 0.0, 0.0, 0.0, 0.0, z, 0.0, 0.0, 0.0, 0.0, 1.0,
     ]
+    .into()
 }
 
 pub fn xr_matrix4x4f_multiply(a: &XrMatrix4x4f, b: &XrMatrix4x4f) -> XrMatrix4x4f {
-    let m0 = a[0] * b[0] + a[4] * b[1] + a[8] * b[2] + a[12] * b[3];
-    let m1 = a[1] * b[0] + a[5] * b[1] + a[9] * b[2] + a[13] * b[3];
-    let m2 = a[2] * b[0] + a[6] * b[1] + a[10] * b[2] + a[14] * b[3];
-    let m3 = a[3] * b[0] + a[7] * b[1] + a[11] * b[2] + a[15] * b[3];
+    let m0 = a.m[0] * b.m[0] + a.m[4] * b.m[1] + a.m[8] * b.m[2] + a.m[12] * b.m[3];
+    let m1 = a.m[1] * b.m[0] + a.m[5] * b.m[1] + a.m[9] * b.m[2] + a.m[13] * b.m[3];
+    let m2 = a.m[2] * b.m[0] + a.m[6] * b.m[1] + a.m[10] * b.m[2] + a.m[14] * b.m[3];
+    let m3 = a.m[3] * b.m[0] + a.m[7] * b.m[1] + a.m[11] * b.m[2] + a.m[15] * b.m[3];
 
-    let m4 = a[0] * b[4] + a[4] * b[5] + a[8] * b[6] + a[12] * b[7];
-    let m5 = a[1] * b[4] + a[5] * b[5] + a[9] * b[6] + a[13] * b[7];
-    let m6 = a[2] * b[4] + a[6] * b[5] + a[10] * b[6] + a[14] * b[7];
-    let m7 = a[3] * b[4] + a[7] * b[5] + a[11] * b[6] + a[15] * b[7];
+    let m4 = a.m[0] * b.m[4] + a.m[4] * b.m[5] + a.m[8] * b.m[6] + a.m[12] * b.m[7];
+    let m5 = a.m[1] * b.m[4] + a.m[5] * b.m[5] + a.m[9] * b.m[6] + a.m[13] * b.m[7];
+    let m6 = a.m[2] * b.m[4] + a.m[6] * b.m[5] + a.m[10] * b.m[6] + a.m[14] * b.m[7];
+    let m7 = a.m[3] * b.m[4] + a.m[7] * b.m[5] + a.m[11] * b.m[6] + a.m[15] * b.m[7];
 
-    let m8 = a[0] * b[8] + a[4] * b[9] + a[8] * b[10] + a[12] * b[11];
-    let m9 = a[1] * b[8] + a[5] * b[9] + a[9] * b[10] + a[13] * b[11];
-    let m10 = a[2] * b[8] + a[6] * b[9] + a[10] * b[10] + a[14] * b[11];
-    let m11 = a[3] * b[8] + a[7] * b[9] + a[11] * b[10] + a[15] * b[11];
+    let m8 = a.m[0] * b.m[8] + a.m[4] * b.m[9] + a.m[8] * b.m[10] + a.m[12] * b.m[11];
+    let m9 = a.m[1] * b.m[8] + a.m[5] * b.m[9] + a.m[9] * b.m[10] + a.m[13] * b.m[11];
+    let m10 = a.m[2] * b.m[8] + a.m[6] * b.m[9] + a.m[10] * b.m[10] + a.m[14] * b.m[11];
+    let m11 = a.m[3] * b.m[8] + a.m[7] * b.m[9] + a.m[11] * b.m[10] + a.m[15] * b.m[11];
 
-    let m12 = a[0] * b[12] + a[4] * b[13] + a[8] * b[14] + a[12] * b[15];
-    let m13 = a[1] * b[12] + a[5] * b[13] + a[9] * b[14] + a[13] * b[15];
-    let m14 = a[2] * b[12] + a[6] * b[13] + a[10] * b[14] + a[14] * b[15];
-    let m15 = a[3] * b[12] + a[7] * b[13] + a[11] * b[14] + a[15] * b[15];
+    let m12 = a.m[0] * b.m[12] + a.m[4] * b.m[13] + a.m[8] * b.m[14] + a.m[12] * b.m[15];
+    let m13 = a.m[1] * b.m[12] + a.m[5] * b.m[13] + a.m[9] * b.m[14] + a.m[13] * b.m[15];
+    let m14 = a.m[2] * b.m[12] + a.m[6] * b.m[13] + a.m[10] * b.m[14] + a.m[14] * b.m[15];
+    let m15 = a.m[3] * b.m[12] + a.m[7] * b.m[13] + a.m[11] * b.m[14] + a.m[15] * b.m[15];
     [
         m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15,
     ]
+    .into()
 }
 
 pub fn xr_matrix4x4f_invert_rigid_body(src: &XrMatrix4x4f) -> XrMatrix4x4f {
-    let m0 = src[0];
-    let m1 = src[4];
-    let m2 = src[8];
+    let m0 = src.m[0];
+    let m1 = src.m[4];
+    let m2 = src.m[8];
     let m3 = 0.0;
-    let m4 = src[1];
-    let m5 = src[5];
-    let m6 = src[9];
+    let m4 = src.m[1];
+    let m5 = src.m[5];
+    let m6 = src.m[9];
     let m7 = 0.0;
-    let m8 = src[2];
-    let m9 = src[6];
-    let m10 = src[10];
+    let m8 = src.m[2];
+    let m9 = src.m[6];
+    let m10 = src.m[10];
     let m11 = 0.0;
-    let m12 = -(src[0] * src[12] + src[1] * src[13] + src[2] * src[14]);
-    let m13 = -(src[4] * src[12] + src[5] * src[13] + src[6] * src[14]);
-    let m14 = -(src[8] * src[12] + src[9] * src[13] + src[10] * src[14]);
+    let m12 = -(src.m[0] * src.m[12] + src.m[1] * src.m[13] + src.m[2] * src.m[14]);
+    let m13 = -(src.m[4] * src.m[12] + src.m[5] * src.m[13] + src.m[6] * src.m[14]);
+    let m14 = -(src.m[8] * src.m[12] + src.m[9] * src.m[13] + src.m[10] * src.m[14]);
     let m15 = 1.0;
     [
         m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15,
     ]
+    .into()
 }
 
 pub fn xr_matrix4x4f_transform_vector3f(m: &XrMatrix4x4f, v: &XrVector3f) -> XrVector3f {
-    let w = m[3] * v.x + m[7] * v.y + m[11] * v.z + m[15];
-    log::debug!(
-        "w = {} = {}*{} + {}*{} + {}*{} + {}",
-        w,
-        m[3],
-        v.x,
-        m[7],
-        v.y,
-        m[11],
-        v.z,
-        m[15]
-    );
+    let w = m.m[3] * v.x + m.m[7] * v.y + m.m[11] * v.z + m.m[15];
+    if false {
+        log::debug!(
+            "w = {} = {}*{} + {}*{} + {}*{} + {}",
+            w,
+            m.m[3],
+            v.x,
+            m.m[7],
+            v.y,
+            m.m[11],
+            v.z,
+            m.m[15]
+        );
+    }
     let rcp_w = 1.0 / w;
-    let x = (m[0] * v.x + m[4] * v.y + m[8] * v.z + m[12]) * rcp_w;
-    let y = (m[1] * v.x + m[5] * v.y + m[9] * v.z + m[13]) * rcp_w;
-    let z = (m[2] * v.x + m[6] * v.y + m[10] * v.z + m[14]) * rcp_w;
+    let x = (m.m[0] * v.x + m.m[4] * v.y + m.m[8] * v.z + m.m[12]) * rcp_w;
+    let y = (m.m[1] * v.x + m.m[5] * v.y + m.m[9] * v.z + m.m[13]) * rcp_w;
+    let z = (m.m[2] * v.x + m.m[6] * v.y + m.m[10] * v.z + m.m[14]) * rcp_w;
     XrVector3f { x, y, z }
 }

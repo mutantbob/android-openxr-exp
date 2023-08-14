@@ -1,5 +1,6 @@
 use gl::types::{GLint, GLuint};
 use gl_thin::gl_helper::{GLErrorWrapper, Program};
+use gl_thin::linear::XrMatrix4x4f;
 
 pub struct FlatColorShader {
     pub program: Program,
@@ -42,9 +43,9 @@ void main() {
         })
     }
 
-    pub fn set_params(&self, matrix: &[f32; 16]) {
+    pub fn set_params(&self, matrix: &XrMatrix4x4f) {
         self.program
-            .set_mat4u(self.sul_matrix as GLint, matrix)
+            .set_mat4u(self.sul_matrix as GLint, matrix.slice())
             .unwrap();
     }
 }

@@ -43,8 +43,8 @@ impl RawTextureShader {
         self.set_u_matrix(matrix)
     }
 
-    fn set_u_matrix(&self, inverse_view_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
-        self.shader.set_mat4u(self.sul_matrix, inverse_view_matrix)
+    fn set_u_matrix(&self, matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
+        self.shader.set_mat4u(self.sul_matrix, matrix.slice())
     }
 
     fn set_texture(&self, index: u32) -> Result<(), GLErrorWrapper> {
@@ -97,9 +97,9 @@ impl RawTextureShader {
     }
 }
 
-pub const IDENTITY: XrMatrix4x4f = [
+/*pub const IDENTITY: XrMatrix4x4f = [
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-];
+];*/
 
 fn shader_v_src() -> &'static str {
     "

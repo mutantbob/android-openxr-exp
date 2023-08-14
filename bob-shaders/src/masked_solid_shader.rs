@@ -88,7 +88,8 @@ impl MaskedSolidShader {
     }
 
     fn set_u_matrix(&self, matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
-        self.program.set_mat4u(self.sul_matrix as GLint, matrix)
+        self.program
+            .set_mat4u(self.sul_matrix as GLint, matrix.slice())
     }
 }
 

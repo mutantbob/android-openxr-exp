@@ -107,7 +107,7 @@ impl SunPhongShader {
 
     fn set_u_matrix(&self, projection_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
         self.program
-            .set_mat4u(self.sul_matrix as GLint, projection_matrix)
+            .set_mat4u(self.sul_matrix as GLint, projection_matrix.slice())
     }
 }
 

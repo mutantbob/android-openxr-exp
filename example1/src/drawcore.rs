@@ -266,6 +266,7 @@ impl ActiveRenderer {
 }
 
 pub fn debug_string_matrix(matrix: &XrMatrix4x4f) -> String {
+    let matrix = matrix.slice();
     format!(
         "{:?}\n{:?}\n{:?}\n{:?}",
         &matrix[0..4],

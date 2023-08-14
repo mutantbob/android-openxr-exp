@@ -5,8 +5,8 @@ use gl_thin::linear::{
     xr_matrix4x4f_create_from_quaternion, xr_matrix4x4f_create_projection_fov,
     xr_matrix4x4f_create_scale, xr_matrix4x4f_create_translation,
     xr_matrix4x4f_create_translation_rotation_scale, xr_matrix4x4f_create_translation_v,
-    xr_matrix4x4f_invert_rigid_body, xr_matrix4x4f_multiply, GraphicsAPI, XrFovf, XrQuaternionf,
-    XrVector3f,
+    xr_matrix4x4f_invert_rigid_body, xr_matrix4x4f_multiply, GraphicsAPI, XrFovf, XrMatrix4x4f,
+    XrQuaternionf, XrVector3f,
 };
 use openxr::SpaceLocation;
 use openxr_sys::Time;
@@ -128,7 +128,7 @@ impl MyScene {
     }
 }
 
-fn rotation_matrix_for_now() -> (f32, [f32; 16]) {
+fn rotation_matrix_for_now() -> (f32, XrMatrix4x4f) {
     let theta = if let Ok(duration) = SystemTime::now().duration_since(UNIX_EPOCH) {
         let tm = duration.as_millis();
         let phase = tm % 5000;
@@ -142,36 +142,37 @@ fn rotation_matrix_for_now() -> (f32, [f32; 16]) {
         [
             1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0f32,
         ]
+        .into()
     };
     (theta, rotation_matrix)
 }
 
 #[rustfmt::skip]
-pub fn matrix_rotation_about_z(theta: f32) -> [f32; 16] {
+pub fn matrix_rotation_about_z(theta: f32) -> XrMatrix4x4f {
     [
         theta.cos(), theta.sin(), 0.0, 0.0, //
         -theta.sin(), theta.cos(), 0.0, 0.0, //
         0.0, 0.0, 1.0, 0.0, //
         0.0, 0.0, 0.0, 1.0f32,
-    ]
+    ].into()
 }
 
 #[rustfmt::skip]
-pub fn matrix_rotation_about_y(theta: f32) -> [f32; 16] {
+pub fn matrix_rotation_about_y(theta: f32) -> XrMatrix4x4f {
     [
         theta.cos(), 0.0, theta.sin(), 0.0, //
         0.0, 1.0, 0.0, 0.0, //
         -theta.sin(), 0.0, theta.cos(), 0.0, //
         0.0, 0.0, 0.0, 1.0f32,
-    ]
+    ].into()
 }
 
 #[rustfmt::skip]
-pub fn matrix_rotation_about_x(theta: f32) -> [f32; 16] {
+pub fn matrix_rotation_about_x(theta: f32) -> XrMatrix4x4f {
     [
         1.0, 0.0, 0.0, 0.0,
         0.0, theta.cos(), theta.sin(), 0.0,
         0.0, -theta.sin(), theta.cos(), 0.0,
         0.0, 0.0, 0.0, 1.0f32,
-    ]
+    ].into()
 }
