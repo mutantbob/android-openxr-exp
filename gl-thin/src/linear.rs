@@ -239,10 +239,26 @@ impl std::ops::Mul<f32> for XrMatrix4x4f {
     }
 }
 
+impl std::ops::Mul<f32> for &XrMatrix4x4f {
+    type Output = XrMatrix4x4f;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        self * xr_matrix4x4f_create_scale(rhs, rhs, rhs)
+    }
+}
+
 impl std::ops::Mul<XrMatrix4x4f> for f32 {
     type Output = XrMatrix4x4f;
 
     fn mul(self, rhs: XrMatrix4x4f) -> Self::Output {
+        xr_matrix4x4f_create_scale(self, self, self) * rhs
+    }
+}
+
+impl std::ops::Mul<&XrMatrix4x4f> for f32 {
+    type Output = XrMatrix4x4f;
+
+    fn mul(self, rhs: &XrMatrix4x4f) -> Self::Output {
         xr_matrix4x4f_create_scale(self, self, self) * rhs
     }
 }
