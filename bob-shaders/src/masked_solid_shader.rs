@@ -11,6 +11,8 @@ pub struct MaskedSolidShader {
     pub sal_tex_coord: u32,
     pub sul_matrix: u32,
     pub sul_tex: u32,
+    pub sul_color_fg: u32,
+    pub sul_color_bg: u32,
 }
 
 impl MaskedSolidShader {
@@ -22,6 +24,8 @@ impl MaskedSolidShader {
 
         let sul_matrix = program.get_uniform_location("u_matrix")?;
         let sul_tex = program.get_uniform_location("tex")?;
+        let sul_color_fg = program.get_uniform_location("color_fg")?;
+        let sul_color_bg = program.get_uniform_location("color_bg")?;
 
         debug!(
             "attribute, uniform locations {} {}  {} {} ",
@@ -34,6 +38,8 @@ impl MaskedSolidShader {
             sal_tex_coord,
             sul_matrix,
             sul_tex,
+            sul_color_fg,
+            sul_color_bg,
         })
     }
 
@@ -42,17 +48,14 @@ impl MaskedSolidShader {
         &self,
         matrix: &XrMatrix4x4f,
         mask: &Texture,
-        color: &[f32; 3],
+        color_fg: &[f32; 4],
+        color_bg: Option<&[f32; 4]>,
         draw_mode: GLenum,
         buffers: &dyn GeometryBuffer<AT, IT>,
         n_indices: GLsizei,
         gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
         self.program.use_()?;
-
-        self.set_u_matrix(matrix)?;
-
-        self.set_color(color)?;
 
         let texture_image_unit = 0;
         unsafe {
@@ -61,7 +64,12 @@ impl MaskedSolidShader {
         explode_if_gl_error()?;
         mask.bind(gl::TEXTURE_2D)?;
 
-        self.set_texture(texture_image_unit)?;
+        self.set_parameters(
+            texture_image_unit,
+            color_fg,
+            color_bg.unwrap_or(&[0.0; 4]),
+            matrix,
+        )?;
 
         let bindings = buffers.activate(gpu_state);
 
@@ -78,13 +86,42 @@ impl MaskedSolidShader {
         Ok(())
     }
 
+    pub fn set_parameters(
+        &self,
+        texture_unit: u32,
+        color_fg: &[f32; 4],
+        color_bg: &[f32; 4],
+        matrix: &XrMatrix4x4f,
+    ) -> Result<(), GLErrorWrapper> {
+        self.set_texture(texture_unit)?;
+        self.set_color_fg(color_fg)?;
+        self.set_color_bg(color_bg)?;
+        self.set_u_matrix(matrix)?;
+        Ok(())
+    }
+
     fn set_texture(&self, texture_unit: u32) -> Result<(), GLErrorWrapper> {
         self.program.set_uniform_1i("tex", texture_unit as GLint)
     }
 
-    fn set_color(&self, color: &[f32; 3]) -> Result<(), GLErrorWrapper> {
-        self.program
-            .set_uniform_3f("color", color[0], color[1], color[2])
+    fn set_color_fg(&self, color: &[f32; 4]) -> Result<(), GLErrorWrapper> {
+        self.program.set_uniform_4f(
+            self.sul_color_fg as GLint,
+            color[0],
+            color[1],
+            color[2],
+            color[3],
+        )
+    }
+
+    fn set_color_bg(&self, color: &[f32; 4]) -> Result<(), GLErrorWrapper> {
+        self.program.set_uniform_4f(
+            self.sul_color_bg as GLint,
+            color[0],
+            color[1],
+            color[2],
+            color[3],
+        )
     }
 
     fn set_u_matrix(&self, matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
@@ -116,11 +153,11 @@ precision highp float;
 #endif
 varying vec2 v_texCoord;
 uniform sampler2D tex;
-uniform vec3 color;
+uniform vec4 color_fg;
+uniform vec4 color_bg;
 void main()
 {{
     float alpha = texture2D(tex, v_texCoord).r;
-    gl_FragColor = vec4(color, alpha);
-
+    gl_FragColor = mix(color_bg, color_fg, alpha);
 }}"
 }
