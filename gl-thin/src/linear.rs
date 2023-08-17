@@ -4,7 +4,7 @@ use openxr_sys::{Fovf, Quaternionf, Vector3f};
 
 #[derive(Copy, Clone, Debug)]
 pub struct XrMatrix4x4f {
-    m: [f32; 16],
+    pub m: [f32; 16],
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
@@ -180,7 +180,7 @@ impl std::ops::Mul for XrQuaternionf {
 //
 
 impl XrMatrix4x4f {
-    pub fn new(m: [f32; 16]) -> Self {
+    pub const fn new(m: [f32; 16]) -> Self {
         XrMatrix4x4f { m }
     }
 
