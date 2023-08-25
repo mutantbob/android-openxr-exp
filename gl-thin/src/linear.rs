@@ -393,11 +393,10 @@ pub fn xr_matrix4x4f_create_translation_rotation_scale(
     translation_matrix * rotation_matrix * scale_matrix
 }
 
-pub fn xr_matrix4x4f_create_translation(dx: f32, dy: f32, dz: f32) -> XrMatrix4x4f {
-    [
+pub const fn xr_matrix4x4f_create_translation(dx: f32, dy: f32, dz: f32) -> XrMatrix4x4f {
+    XrMatrix4x4f::new([
         1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, dx, dy, dz, 1.0,
-    ]
-    .into()
+    ])
 }
 
 pub fn xr_matrix4x4f_create_translation_v(xyz: &Vector3f) -> XrMatrix4x4f {
@@ -472,10 +471,9 @@ pub fn xr_matrix4x4f_multiply(a: &XrMatrix4x4f, b: &XrMatrix4x4f) -> XrMatrix4x4
     let m13 = a.m[1] * b.m[12] + a.m[5] * b.m[13] + a.m[9] * b.m[14] + a.m[13] * b.m[15];
     let m14 = a.m[2] * b.m[12] + a.m[6] * b.m[13] + a.m[10] * b.m[14] + a.m[14] * b.m[15];
     let m15 = a.m[3] * b.m[12] + a.m[7] * b.m[13] + a.m[11] * b.m[14] + a.m[15] * b.m[15];
-    [
+    XrMatrix4x4f::new([
         m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15,
-    ]
-    .into()
+    ])
 }
 
 pub fn xr_matrix4x4f_invert_rigid_body(src: &XrMatrix4x4f) -> XrMatrix4x4f {
