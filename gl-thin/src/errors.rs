@@ -1,5 +1,3 @@
-use crate::openxr_helpers::OpenXRComponent;
-use openxr::Instance;
 use std::fmt::{Debug, Display, Formatter};
 
 pub struct XrErrorWrapped {
@@ -21,13 +19,16 @@ impl XrErrorWrapped {
         }
     }
 
+    #[cfg(target_os = "android")]
     pub fn build(
         e: openxr_sys::Result,
-        instance: Option<&Instance>,
+        instance: Option<&openxr::Instance>,
         msg: impl Into<String>,
     ) -> XrErrorWrapped {
         let x = match instance {
-            Some(instance) => OpenXRComponent::message_for_error(&instance.as_raw(), e),
+            Some(instance) => {
+                crate::openxr_helpers::OpenXRComponent::message_for_error(&instance.as_raw(), e)
+            }
             None => format!("OpenXR failed {:?}", e),
         };
         XrErrorWrapped::new(x, msg.into())
@@ -54,19 +55,21 @@ impl std::error::Error for XrErrorWrapped {}
 
 //
 
+#[cfg(target_os = "android")]
 /// This only exists so I can chain a call onto a Result to convert it
 pub trait Wrappable<T> {
     fn annotate_if_err<S: Into<String>>(
         self,
-        instance: Option<&Instance>,
+        instance: Option<&openxr::Instance>,
         msg: S,
     ) -> Result<T, XrErrorWrapped>;
 }
 
+#[cfg(target_os = "android")]
 impl<T> Wrappable<T> for Result<T, openxr_sys::Result> {
     fn annotate_if_err<S: Into<String>>(
         self,
-        instance: Option<&Instance>,
+        instance: Option<&openxr::Instance>,
         msg: S,
     ) -> Result<T, XrErrorWrapped> {
         self.map_err(|e| XrErrorWrapped::build(e, instance, msg))

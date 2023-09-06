@@ -347,7 +347,7 @@ impl<F> Shader<F> {
                 error_log.as_mut_ptr(),
             )
         };
-        CString::new(error_log).unwrap()
+        CString::new(from_glchar_to_u8(error_log)).unwrap()
     }
 }
 
@@ -493,8 +493,12 @@ impl Program {
                 error_log.as_mut_ptr(),
             )
         };
-        CString::new(error_log).unwrap()
+        CString::new(from_glchar_to_u8(error_log)).unwrap()
     }
+}
+
+fn from_glchar_to_u8(src: Vec<GLchar>) -> Vec<u8> {
+    src.into_iter().map(|x| x as u8).collect::<Vec<_>>()
 }
 
 impl Drop for Program {

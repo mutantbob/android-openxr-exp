@@ -11,13 +11,13 @@ gl="*"
 egli="*"
 itertools = "*"
 
-[dependencies.openxr]
+[target.'cfg(target_arch="android")'.dependencies.openxr]
 features=["linked"]
 #version=">=0.18"
 # until the OpenGlEs Graphics backend is published, we must use git
 git="https://github.com/Ralith/openxrs.git"
 rev="48b5875"
-[dependencies.openxr-sys]
+[target.'cfg(target_arch="android")'.dependencies.openxr-sys]
 #version=">=0.18"
 # until the OpenGlEs Graphics backend is published, we must use git
 git="https://github.com/Ralith/openxrs.git"
