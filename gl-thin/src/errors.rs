@@ -19,7 +19,7 @@ impl XrErrorWrapped {
         }
     }
 
-    #[cfg(target_os = "android")]
+    #[cfg(feature = "openxr")]
     pub fn build(
         e: openxr_sys::Result,
         instance: Option<&openxr::Instance>,
@@ -55,7 +55,7 @@ impl std::error::Error for XrErrorWrapped {}
 
 //
 
-#[cfg(target_os = "android")]
+#[cfg(feature = "openxr")]
 /// This only exists so I can chain a call onto a Result to convert it
 pub trait Wrappable<T> {
     fn annotate_if_err<S: Into<String>>(
@@ -65,7 +65,7 @@ pub trait Wrappable<T> {
     ) -> Result<T, XrErrorWrapped>;
 }
 
-#[cfg(target_os = "android")]
+#[cfg(feature = "openxr")]
 impl<T> Wrappable<T> for Result<T, openxr_sys::Result> {
     fn annotate_if_err<S: Into<String>>(
         self,
