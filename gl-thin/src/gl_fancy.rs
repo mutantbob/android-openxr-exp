@@ -1,9 +1,11 @@
 use crate::gl_helper;
 use crate::gl_helper::{
-    explode_if_gl_error, gl_offset_for, ArrayBufferType, Buffer, BufferOwnership, BufferTarget,
-    ElementArrayBufferType, GLBufferType, GLErrorWrapper, Program, VertexArray,
+    bytes_per_pixel, explode_if_gl_error, gl_offset_for, ArrayBufferType, Buffer, BufferOwnership,
+    BufferTarget, ElementArrayBufferType, GLBufferType, GLErrorWrapper, Program, Texture,
+    VertexArray,
 };
 use gl::types::{GLenum, GLint, GLsizei, GLuint};
+use std::ffi::c_void;
 use std::mem::size_of;
 
 /// The OpenGL API has quite a bit of state.

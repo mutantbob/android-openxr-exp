@@ -90,7 +90,7 @@ impl MyScene {
 
         if let Some(controller_1) = controller_1 {
             let model = {
-                let translate = xr_matrix4x4f_create_translation_v(&controller_1.pose.position);
+                let translate = xr_matrix4x4f_create_translation_v(&controller_1.pose.position.into());
                 let upright = matrix_rotation_about_x(PI);
                 let rotation_matrix =
                     xr_matrix4x4f_create_from_quaternion(&controller_1.pose.orientation.into());

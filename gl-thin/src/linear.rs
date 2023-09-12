@@ -1,5 +1,6 @@
 // these are as-needes copies of inline functions from the OpenXR-SDK xr_linear.h
 
+#[cfg(feature = "openxr")]
 use openxr_sys::{Fovf, Quaternionf, Vector3f};
 
 #[derive(Copy, Clone, Debug)]
@@ -25,6 +26,7 @@ pub struct XrFovf {
     pub angle_down: f32,
 }
 
+#[cfg(feature = "openxr")]
 impl From<Fovf> for XrFovf {
     fn from(value: Fovf) -> Self {
         XrFovf {
@@ -73,6 +75,7 @@ impl XrVector3f {
     }
 }
 
+#[cfg(feature = "openxr")]
 impl From<&XrVector3f> for Vector3f {
     fn from(val: &XrVector3f) -> Self {
         Vector3f {
@@ -83,6 +86,7 @@ impl From<&XrVector3f> for Vector3f {
     }
 }
 
+#[cfg(feature = "openxr")]
 impl From<Vector3f> for XrVector3f {
     fn from(value: Vector3f) -> Self {
         Self {
@@ -152,6 +156,7 @@ impl Default for XrQuaternionf {
     }
 }
 
+#[cfg(feature = "openxr")]
 impl From<Quaternionf> for XrQuaternionf {
     fn from(value: Quaternionf) -> Self {
         Self {
@@ -399,7 +404,7 @@ pub const fn xr_matrix4x4f_create_translation(dx: f32, dy: f32, dz: f32) -> XrMa
     ])
 }
 
-pub fn xr_matrix4x4f_create_translation_v(xyz: &Vector3f) -> XrMatrix4x4f {
+pub fn xr_matrix4x4f_create_translation_v(xyz: &XrVector3f) -> XrMatrix4x4f {
     xr_matrix4x4f_create_translation(xyz.x, xyz.y, xyz.z)
 }
 
