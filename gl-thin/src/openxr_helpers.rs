@@ -278,7 +278,7 @@ impl OpenXRComponent {
 
     pub fn paint_vr_multiview<T>(
         &mut self,
-        mut before_paint: impl FnMut(&OpenXRComponent, &FrameState) -> T,
+        before_paint: impl FnOnce(&OpenXRComponent, &FrameState) -> T,
         mut paint_one_view: impl FnMut(
             &View,
             &ViewConfigurationView,
