@@ -1,5 +1,4 @@
 use crate::errors::{Wrappable, XrErrorWrapped};
-use crate::gl_fancy::GPUState;
 use gl::types::GLint;
 use itertools::izip;
 use log::{debug, error, info, warn};
@@ -276,6 +275,10 @@ impl OpenXRComponent {
         }
     }
 
+    /// Get the frame state and provide it to the `before_paint` closure to
+    /// calculate app-specific data.
+    /// Then use the `paint_one_view` closure with that app-specific data to
+    /// render all the camera views needed by the openxr system
     pub fn paint_vr_multiview<T>(
         &mut self,
         before_paint: impl FnOnce(&OpenXRComponent, &FrameState) -> T,
@@ -284,12 +287,10 @@ impl OpenXRComponent {
             &ViewConfigurationView,
             Time,
             <Backend as Graphics>::SwapchainImage,
-            &mut GPUState,
             &mut T,
         ),
-        mut after_paint: impl FnMut(&OpenXRComponent, &FrameState),
+        mut after_paint: impl FnMut(&OpenXRComponent, &FrameState, T),
         view_configuration_type: ViewConfigurationType,
-        gpu_state: &mut GPUState,
     ) -> Result<(), XrErrorWrapped> {
         let frame_state = self
             .frame_waiter
@@ -343,14 +344,7 @@ impl OpenXRComponent {
 
             let color_buffer = sci[buffer_index as usize];
 
-            paint_one_view(
-                view_i,
-                vcv,
-                predicted_display_time,
-                color_buffer,
-                gpu_state,
-                &mut arg,
-            );
+            paint_one_view(view_i, vcv, predicted_display_time, color_buffer, &mut arg);
 
             if let Err(result) = swapchain.release_image() {
                 malfunctions.push(XrErrorWrapped::build(
@@ -362,7 +356,7 @@ impl OpenXRComponent {
             }
         }
 
-        after_paint(self, &frame_state);
+        after_paint(self, &frame_state, arg);
 
         for err in &malfunctions {
             log::error!("malfunction while painting OpenXR views {}", err);
