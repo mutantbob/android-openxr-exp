@@ -5,6 +5,7 @@ use gl_thin::gl_helper::{explode_if_gl_error, GLBufferType, GLErrorWrapper, Prog
 use gl_thin::linear::XrMatrix4x4f;
 use log::debug;
 
+/// uses the red channel of a texture as an alpha channel to mix a foreground and background color.
 pub struct MaskedSolidShader {
     pub program: Program,
     pub sal_position: u32,

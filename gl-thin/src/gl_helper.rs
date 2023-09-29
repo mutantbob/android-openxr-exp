@@ -550,7 +550,7 @@ impl Texture {
         let rval = Self::new()?;
         let target = gl::TEXTURE_2D;
         rval.bind(target)?;
-        rval.configure(
+        rval.configure::<c_void>(
             target,
             0,
             gl::DEPTH_COMPONENT24 as i32,
@@ -558,8 +558,6 @@ impl Texture {
             height,
             0,
             gl::DEPTH_COMPONENT,
-            gl::UNSIGNED_INT,
-            None,
         )?;
         Ok(rval)
     }
@@ -571,8 +569,10 @@ impl Texture {
         }
     }
 
+    /// bind before calling this, and don't forget to make the mipmaps
+    /// or just call write_pixels_and_generate_mipmap()
     #[allow(clippy::too_many_arguments)]
-    pub fn configure(
+    pub fn configure<T>(
         &self,
         target: GLenum,
         level: i32,
@@ -581,8 +581,6 @@ impl Texture {
         height: i32,
         border: i32,
         format: GLenum,
-        type_: GLenum,
-        pixels: Option<&[c_void]>,
     ) -> Result<(), GLErrorWrapper> {
         unsafe {
             gl::TexImage2D(
@@ -593,11 +591,8 @@ impl Texture {
                 height,
                 border,
                 format,
-                type_,
-                match pixels {
-                    None => null(),
-                    Some(slice) => slice.as_ptr(),
-                },
+                gl::UNSIGNED_BYTE,
+                null(),
             )
         };
         explode_if_gl_error()
