@@ -550,7 +550,7 @@ impl Texture {
         let rval = Self::new()?;
         let target = gl::TEXTURE_2D;
         rval.bind(target)?;
-        rval.configure::<c_void>(
+        rval.configure::<GLuint>(
             target,
             0,
             gl::DEPTH_COMPONENT24 as i32,
@@ -569,10 +569,10 @@ impl Texture {
         }
     }
 
-    /// bind before calling this, and don't forget to make the mipmaps
+    /// bind before calling this, and don't forget to make the mipmaps;
     /// or just call write_pixels_and_generate_mipmap()
     #[allow(clippy::too_many_arguments)]
-    pub fn configure<T>(
+    pub fn configure<T: GLBufferType>(
         &self,
         target: GLenum,
         level: i32,
@@ -591,7 +591,8 @@ impl Texture {
                 height,
                 border,
                 format,
-                gl::UNSIGNED_BYTE,
+                // the call can crash if you pass the wrong value for type
+                T::TYPE_CODE,
                 null(),
             )
         };
@@ -761,6 +762,10 @@ impl GLBufferType for u8 {
 
 impl GLBufferType for GLushort {
     const TYPE_CODE: GLenum = gl::UNSIGNED_SHORT;
+}
+
+impl GLBufferType for GLuint {
+    const TYPE_CODE: GLenum = gl::UNSIGNED_INT;
 }
 
 /// # Safety
