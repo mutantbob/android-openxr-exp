@@ -117,7 +117,6 @@ impl<'a> RainbowTriangle<'a> {
 pub struct Suzanne {
     phong: SunPhongShader,
     buffers: VertexBufferBundle<'static, GLfloat, GLushort>,
-    index_count: GLsizei,
 }
 
 impl Suzanne {
@@ -133,15 +132,11 @@ impl Suzanne {
             &[(phong.sal_position, 3, 0), (phong.sal_normal, 3, 3)],
         )?;
 
-        Ok(Self {
-            phong,
-            buffers,
-            index_count: indices.len() as GLsizei,
-        })
+        Ok(Self { phong, buffers })
     }
 
     pub fn index_count(&self) -> GLsizei {
-        self.index_count
+        self.buffers.index_count as GLsizei
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -179,7 +174,6 @@ impl GeometryBuffer<GLfloat, GLushort> for Suzanne {
 pub struct TextMessage {
     program: MaskedSolidShader,
     buffers: VertexBufferBundle<'static, GLfloat, GLushort>,
-    index_count: GLsizei,
     texture: Texture,
 }
 
@@ -236,14 +230,13 @@ impl TextMessage {
         let rval = Self {
             program,
             buffers,
-            index_count: indices.len() as GLsizei,
             texture,
         };
         Ok(rval)
     }
 
     pub fn index_count(&self) -> GLsizei {
-        self.index_count
+        self.buffers.index_count as _
     }
 
     #[allow(clippy::too_many_arguments)]

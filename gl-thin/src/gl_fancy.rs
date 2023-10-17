@@ -308,6 +308,7 @@ pub struct VertexBufferBundle<'a, AT, IT> {
     pub vertex_array: VertexArray,
     pub vertex_buffer: Buffer<'a, ArrayBufferType, AT>,
     pub index_buffer: Buffer<'a, ElementArrayBufferType, IT>,
+    pub index_count: usize,
 }
 
 impl<'a, AT, IT> VertexBufferBundle<'a, AT, IT> {
@@ -316,6 +317,7 @@ impl<'a, AT, IT> VertexBufferBundle<'a, AT, IT> {
             vertex_array: VertexArray::new()?,
             vertex_buffer: Buffer::new()?,
             index_buffer: Buffer::new()?,
+            index_count: 0,
         })
     }
 
@@ -399,6 +401,7 @@ impl<'a, AT: GLBufferType, IT: GLBufferType> VertexBufferBundle<'a, AT, IT> {
             bound.index_buffer.load_any(index_data)?;
             bound.rig_multi_attributes(vertex_data_stride, attributes)?;
         }
+        rval.index_count = index_count;
         Ok(rval)
     }
 }
