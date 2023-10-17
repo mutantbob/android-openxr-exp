@@ -345,8 +345,9 @@ impl<F> Shader<F> {
                 max_length,
                 &mut max_length,
                 error_log.as_mut_ptr(),
-            )
-        };
+            );
+            error_log.set_len(max_length as usize);
+        }
         CString::new(from_glchar_to_u8(error_log)).unwrap()
     }
 }
@@ -374,8 +375,8 @@ impl Program {
         vertex_shader: impl AsRef<str>,
         fragment_shader: impl AsRef<str>,
     ) -> Result<Self, GLErrorWrapper> {
-        let vertex_shader = Shader::<VertexShader>::compile(vertex_shader.as_ref()).unwrap();
-        let fragment_shader = Shader::<FragmentShader>::compile(fragment_shader.as_ref()).unwrap();
+        let vertex_shader = Shader::<VertexShader>::compile(vertex_shader.as_ref())?;
+        let fragment_shader = Shader::<FragmentShader>::compile(fragment_shader.as_ref())?;
 
         let mut rval = Self::new_empty().unwrap();
         rval.attach(&vertex_shader).unwrap();
@@ -491,8 +492,9 @@ impl Program {
                 max_length,
                 &mut max_length,
                 error_log.as_mut_ptr(),
-            )
-        };
+            );
+            error_log.set_len(max_length as usize);
+        }
         CString::new(from_glchar_to_u8(error_log)).unwrap()
     }
 }
@@ -532,7 +534,7 @@ impl Drop for FrameBuffer {
 
 //
 
-pub struct Texture(Ownership<GLuint>);
+pub struct Texture(pub Ownership<GLuint>);
 
 impl Texture {
     pub fn new() -> Result<Self, GLErrorWrapper> {
@@ -599,6 +601,7 @@ impl Texture {
         explode_if_gl_error()
     }
 
+    /// Consider using BoundTexture instead
     pub fn bind(&self, target: GLenum) -> Result<(), GLErrorWrapper> {
         unsafe { gl::BindTexture(target, *self.0.unwrap()) };
         explode_if_gl_error()
@@ -669,7 +672,7 @@ impl Texture {
             format,
             pixels,
         )?;
-        self.generate_mipmap()
+        unsafe { self.generate_mipmap() }
     }
 
     /// Remember to populate the mipmap by either writing all the different mipmap `level`s or using `self.generate_mipmap()`
@@ -710,7 +713,9 @@ impl Texture {
         explode_if_gl_error()
     }
 
-    pub fn generate_mipmap(&self) -> Result<(), GLErrorWrapper> {
+    /// # Safety
+    /// did you `bind()` this texture yet?
+    pub unsafe fn generate_mipmap(&self) -> Result<(), GLErrorWrapper> {
         unsafe { gl::GenerateMipmap(gl::TEXTURE_2D) };
         explode_if_gl_error()
     }

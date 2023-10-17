@@ -66,7 +66,14 @@ fn event_loop_one_pass<T: Drawable, X: std::fmt::Debug, E: std::fmt::Debug>(
     match event {
         Event::Resumed => {
             log::debug!("resume");
-            *app = AppState::Active(factory(event_loop).unwrap());
+            match factory(event_loop) {
+                Ok(x) => {
+                    *app = AppState::Active(x);
+                }
+                Err(e) => {
+                    log::error!("malfunction building drawable {:?}", e)
+                }
+            }
         }
         Event::Suspended => {
             log::debug!("suspend");

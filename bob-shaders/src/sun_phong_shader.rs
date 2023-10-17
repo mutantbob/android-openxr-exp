@@ -10,7 +10,8 @@ pub struct SunPhongShader {
     pub program: Program,
     pub sal_position: u32,
     pub sal_normal: u32,
-    pub sul_matrix: u32,
+    pub sul_m_matrix: u32,
+    pub sul_pv_matrix: u32,
 }
 
 impl SunPhongShader {
@@ -20,27 +21,31 @@ impl SunPhongShader {
         let sal_position = program.get_attribute_location("a_position")?;
         let sal_normal = program.get_attribute_location("a_normal")?;
 
-        let sul_matrix = program.get_uniform_location("u_matrix")?;
+        let sul_m_matrix = program.get_uniform_location("m_matrix")?;
+        let sul_pv_matrix = program.get_uniform_location("pv_matrix")?;
 
         log::debug!(
-            "attribute, uniform locations {} {}  {}",
+            "attribute, uniform locations {} {}  {} {}",
             sal_position,
             sal_normal,
-            sul_matrix,
+            sul_m_matrix,
+            sul_pv_matrix,
         );
 
         Ok(Self {
             program,
             sal_position,
             sal_normal,
-            sul_matrix,
+            sul_m_matrix,
+            sul_pv_matrix,
         })
     }
 
     #[allow(clippy::too_many_arguments)]
     pub fn draw<AT, IT: GLBufferType>(
         &self,
-        matrix: &XrMatrix4x4f,
+        m_matrix: &XrMatrix4x4f,
+        pv_matrix: &XrMatrix4x4f,
         sun_direction: &[f32; 3],
         color: &[f32; 3],
         buffers: &dyn GeometryBuffer<AT, IT>,
@@ -49,7 +54,7 @@ impl SunPhongShader {
     ) -> Result<(), GLErrorWrapper> {
         self.program.use_()?;
 
-        self.set_parameters(matrix, sun_direction, color)?;
+        self.set_parameters(m_matrix, pv_matrix, sun_direction, color)?;
 
         let bindings = buffers.activate(gpu_state);
 
@@ -68,11 +73,13 @@ impl SunPhongShader {
 
     pub fn set_parameters(
         &self,
-        matrix: &XrMatrix4x4f,
+        m_matrix: &XrMatrix4x4f,
+        pv_matrix: &XrMatrix4x4f,
         sun_direction: &[f32; 3],
         color: &[f32; 3],
     ) -> Result<(), GLErrorWrapper> {
-        self.set_u_matrix(matrix)?;
+        self.set_m_matrix(m_matrix)?;
+        self.set_pv_matrix(pv_matrix)?;
 
         self.set_sun_direction(sun_direction)?;
         self.set_color(color)?;
@@ -105,9 +112,14 @@ impl SunPhongShader {
         Ok(())
     }
 
-    fn set_u_matrix(&self, projection_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
+    fn set_m_matrix(&self, projection_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
         self.program
-            .set_mat4u(self.sul_matrix as GLint, projection_matrix.slice())
+            .set_mat4u(self.sul_m_matrix as GLint, projection_matrix.slice())
+    }
+
+    fn set_pv_matrix(&self, projection_matrix: &XrMatrix4x4f) -> Result<(), GLErrorWrapper> {
+        self.program
+            .set_mat4u(self.sul_pv_matrix as GLint, projection_matrix.slice())
     }
 }
 
@@ -118,12 +130,13 @@ attribute vec3 a_normal;
 
 varying vec3 v_normal;
 
-uniform mat4 u_matrix;
+uniform mat4 m_matrix;
+uniform mat4 pv_matrix;
 
 void main()
 {
-    gl_Position = u_matrix * a_position;
-    v_normal = mat3(u_matrix) * a_normal;
+    gl_Position = pv_matrix * m_matrix * a_position;
+    v_normal = mat3(m_matrix) * a_normal;
 }
 "
 }

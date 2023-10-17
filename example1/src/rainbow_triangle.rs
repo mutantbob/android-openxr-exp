@@ -147,14 +147,22 @@ impl Suzanne {
     #[allow(clippy::too_many_arguments)]
     pub fn draw(
         &self,
-        matrix: &XrMatrix4x4f,
+        m_matrix: &XrMatrix4x4f,
+        pv_matrix: &XrMatrix4x4f,
         sun_direction: &[f32; 3],
         color: &[f32; 3],
         n_indices: GLsizei,
         gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
-        self.phong
-            .draw(matrix, sun_direction, color, self, n_indices, gpu_state)
+        self.phong.draw(
+            m_matrix,
+            pv_matrix,
+            sun_direction,
+            color,
+            self,
+            n_indices,
+            gpu_state,
+        )
     }
 }
 
@@ -248,7 +256,8 @@ impl TextMessage {
         self.program.draw(
             matrix,
             &self.texture,
-            &[1.0, 0.5, 0.0],
+            &[1.0, 0.5, 0.0, 1.0],
+            None,
             gl::TRIANGLE_STRIP,
             self,
             n_indices,

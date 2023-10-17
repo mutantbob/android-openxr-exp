@@ -5,7 +5,6 @@ use crate::gl_helper::{
     VertexArray,
 };
 use gl::types::{GLenum, GLint, GLsizei, GLuint};
-use std::ffi::c_void;
 use std::mem::size_of;
 
 /// The OpenGL API has quite a bit of state.
@@ -14,11 +13,15 @@ use std::mem::size_of;
 /// * vertexarray bindings (maybe done?)
 /// * active texture slot bindings (not even started)
 /// * what else?
-pub struct GPUState {}
+pub struct GPUState {
+    active_texture_unit: ActiveTextureUnit,
+}
 
 impl GPUState {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            active_texture_unit: ActiveTextureUnit(0),
+        }
     }
 
     pub fn bind_vertex_array_and_buffers<'a, AT, IT>(
@@ -54,6 +57,12 @@ impl GPUState {
             vertex_buffer,
             index_buffer,
         ))
+    }
+
+    pub fn set_active_texture(&mut self, idx: ActiveTextureUnit) -> Result<(), GLErrorWrapper> {
+        self.active_texture_unit = idx;
+        unsafe { gl::ActiveTexture(self.active_texture_unit.gl_arg()) };
+        explode_if_gl_error()
     }
 }
 
@@ -232,6 +241,25 @@ impl<'a, 'g, 'd, AT: GLBufferType, IT> BoundBuffersMut<'a, 'g, 'd, AT, IT> {
         self.rig_one_attribute(loc, attribute_array_width, stride, offset)
     }
 
+    /// # params
+    /// `stride` - the offset between the beginning of one sample and the beginning of the subsequent sample
+    ///
+    /// `attributes` - an iterable of (attribute_location, attribute_width, offset) tuples.
+    ///
+    /// # example
+    /// If you have some packed XYZUV values this will have a stride of 5, the XYZ at offset 0,  and UV at offset 3 (immediately after the XYZ)
+    /// ```
+    /// # use gl::types::GLuint;
+    /// # use gl_thin::gl_fancy::VertexBufferBundle;
+    /// # struct Program { sal_xyz: GLuint,
+    /// # sal_uv: GLuint,}
+    /// # fn x<AT,IT>(buffer: &VertexBufferBundle<AT,IT>, program: &Program) {}
+    /// buffer.rig_multi_attributes(5, &[
+    ///     (program.sal_xyz, 3, 0),
+    ///     (program.sal_uv, 2, 3),
+    ///   ]);
+    /// # }
+    /// ```
     pub fn rig_multi_attributes<'i>(
         &self,
         stride: GLsizei,
@@ -331,6 +359,10 @@ impl<'a, AT: GLBufferType, IT: GLBufferType> VertexBufferBundle<'a, AT, IT> {
     /// binds some data to the buffers,
     /// and binds the vertex attributes.
     /// That last step trips up some people.
+    ///
+    /// # parameters
+    /// `attributes` - an iterable of (attribute_location, attribute_width, offset) tuples.  See [BoundBuffersMut::rig_multi_attributes] for more details
+    ///
     /// # Example
     /// ```
     /// # use gl::types::GLsizei;
@@ -360,6 +392,7 @@ impl<'a, AT: GLBufferType, IT: GLBufferType> VertexBufferBundle<'a, AT, IT> {
         attributes: impl IntoIterator<Item = &'i (GLuint, GLint, GLsizei)>,
     ) -> Result<Self, GLErrorWrapper> {
         let mut rval = Self::incomplete()?;
+        let index_count = index_data.as_slice().len();
         {
             let mut bound = rval.bind_mut(gpu_state)?;
             bound.vertex_buffer.load_any(vertex_data)?;
@@ -367,5 +400,161 @@ impl<'a, AT: GLBufferType, IT: GLBufferType> VertexBufferBundle<'a, AT, IT> {
             bound.rig_multi_attributes(vertex_data_stride, attributes)?;
         }
         Ok(rval)
+    }
+}
+
+//
+
+pub struct ActiveTextureUnit(pub u32);
+
+impl ActiveTextureUnit {
+    pub fn gl_arg(&self) -> GLenum {
+        gl::TEXTURE0 + self.0
+    }
+}
+
+//
+
+pub struct BoundTexture<'g, 't> {
+    // prevent anyone else from modifying the active texture unit until we are done using this object
+    #[allow(dead_code)]
+    lock: &'g ActiveTextureUnit,
+    // probably gl::TEXTURE_2D
+    target: GLenum,
+    tex: &'t Texture,
+}
+
+impl<'g, 't> BoundTexture<'g, 't> {
+    pub fn new(
+        gpu_state: &'g GPUState,
+        arg: &'t Texture,
+        target: GLenum,
+    ) -> Result<Self, GLErrorWrapper> {
+        arg.bind(target)?;
+        Ok(Self {
+            lock: &gpu_state.active_texture_unit,
+            target,
+            tex: arg,
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn configure<T: GLBufferType>(
+        &self,
+        level: i32,
+        internal_format: i32,
+        width: i32,
+        height: i32,
+        border: i32,
+        format: GLenum,
+    ) -> Result<(), GLErrorWrapper> {
+        unsafe {
+            gl::TexImage2D(
+                self.target,
+                level,
+                internal_format,
+                width,
+                height,
+                border,
+                format,
+                T::TYPE_CODE,
+                std::ptr::null(),
+            )
+        };
+        explode_if_gl_error()
+    }
+
+    pub fn attach(
+        &self,
+        target: GLenum,
+        attachment: GLenum,
+        level: i32,
+    ) -> Result<(), GLErrorWrapper> {
+        let texture = *self.tex.0.unwrap();
+        unsafe { gl::FramebufferTexture2D(target, attachment, self.target, texture, level) };
+        explode_if_gl_error()
+    }
+
+    pub fn get_width(&self) -> Result<GLint, GLErrorWrapper> {
+        let mut rval = 0;
+        unsafe { gl::GetTexLevelParameteriv(self.target, 0, gl::TEXTURE_WIDTH, &mut rval) };
+        explode_if_gl_error()?;
+
+        Ok(rval)
+    }
+
+    pub fn get_height(&self) -> Result<GLint, GLErrorWrapper> {
+        let mut rval = 0;
+        unsafe { gl::GetTexLevelParameteriv(self.target, 0, gl::TEXTURE_HEIGHT, &mut rval) };
+        explode_if_gl_error()?;
+
+        Ok(rval)
+    }
+
+    pub fn get_dimensions(&self) -> Result<(GLint, GLint), GLErrorWrapper> {
+        let mut width = 0;
+        unsafe { gl::GetTexLevelParameteriv(self.target, 0, gl::TEXTURE_WIDTH, &mut width) };
+        explode_if_gl_error()?;
+
+        let mut height = 0;
+        unsafe { gl::GetTexLevelParameteriv(self.target, 0, gl::TEXTURE_HEIGHT, &mut height) };
+        explode_if_gl_error()?;
+
+        Ok((width, height))
+    }
+
+    pub fn write_pixels_and_generate_mipmap<T: GLBufferType>(
+        &mut self,
+        level: GLint,
+        internal_format: GLint,
+        width: GLsizei,
+        height: GLsizei,
+        format: GLenum,
+        pixels: &[T],
+    ) -> Result<(), GLErrorWrapper> {
+        self.write_pixels(level, internal_format, width, height, format, pixels)?;
+        self.generate_mipmap()
+    }
+
+    /// Remember to populate the mipmap by either writing all the different mipmap `level`s or using `self.generate_mipmap()`
+    pub fn write_pixels<T: GLBufferType>(
+        &mut self,
+        level: GLint,
+        internal_format: GLint,
+        width: GLsizei,
+        height: GLsizei,
+        format: GLenum,
+        pixels: &[T],
+    ) -> Result<(), GLErrorWrapper> {
+        let bpp = bytes_per_pixel::<T>(format)?;
+        if (width * height) as usize * bpp != pixels.len() {
+            return Err(GLErrorWrapper::with_message2(format!(
+                "size mismatch : {}*{}*{} != {}",
+                width,
+                height,
+                bpp,
+                pixels.len()
+            )));
+        }
+
+        unsafe {
+            gl::TexImage2D(
+                self.target,
+                level,
+                internal_format,
+                width,
+                height,
+                0,
+                format,
+                T::TYPE_CODE,
+                pixels.as_ptr() as *const _,
+            );
+        }
+        explode_if_gl_error()
+    }
+
+    pub fn generate_mipmap(&self) -> Result<(), GLErrorWrapper> {
+        unsafe { gl::GenerateMipmap(self.target) };
+        explode_if_gl_error()
     }
 }

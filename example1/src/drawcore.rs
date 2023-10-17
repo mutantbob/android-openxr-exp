@@ -116,7 +116,7 @@ impl ActiveRenderer {
     pub fn new<T>(event_loop: &EventLoopWindowTarget<T>) -> Result<Self, Box<dyn Error>> {
         let (display_ptr, raw_context) = Self::build_android_egl_context(event_loop)?;
 
-        let mut gpu_state = GPUState {};
+        let mut gpu_state = GPUState::new();
 
         let openxr = OpenXRComponent::new(display_ptr as *mut c_void, raw_context as *mut c_void)?;
 
@@ -194,6 +194,8 @@ impl ActiveRenderer {
 
     /// iterate through the various OpenXR views and paint them
     pub fn draw_inner(&mut self) -> Result<(), XrErrorWrapped> {
+        let gpu_state = &mut self.gpu_state;
+
         let before_paint = |openxr: &OpenXRComponent, frame_state: &openxr::FrameState| {
             self.inputs.sync_actions(&openxr.xr_session).unwrap();
 
@@ -206,35 +208,36 @@ impl ActiveRenderer {
             if false {
                 debug!("space location {:?}", location.map(|sl| sl.pose));
             }
-            location
+            (location, gpu_state)
         };
 
-        let lambda = |view_i: &View,
-                      vcv: &ViewConfigurationView,
-                      predicted_display_time,
-                      render_destination,
-                      gpu_state: &mut GPUState,
-                      controller_1: &mut Option<SpaceLocation>| {
-            Self::paint_one_view(
-                view_i,
-                vcv,
-                predicted_display_time,
-                &self.scene,
-                &self.frame_env,
-                render_destination,
-                gpu_state,
-                controller_1,
-            )
-            .unwrap();
-        };
-        let after_paint = |_: &OpenXRComponent, _: &openxr::FrameState| {};
+        let lambda =
+            |view_i: &View,
+             vcv: &ViewConfigurationView,
+             predicted_display_time,
+             render_destination,
+             // gpu_state: &mut GPUState,
+             (controller_1, gpu_state): &mut (Option<SpaceLocation>, &mut GPUState)| {
+                Self::paint_one_view(
+                    view_i,
+                    vcv,
+                    predicted_display_time,
+                    &self.scene,
+                    &self.frame_env,
+                    render_destination,
+                    gpu_state,
+                    controller_1,
+                )
+                .unwrap();
+            };
+        let after_paint = |_: &OpenXRComponent, _: &openxr::FrameState, _| {};
 
         self.openxr.paint_vr_multiview(
             before_paint,
             lambda,
             after_paint,
             ViewConfigurationType::PRIMARY_STEREO,
-            &mut self.gpu_state,
+            // &mut self.gpu_state,
         )
     }
 

@@ -5,8 +5,7 @@ use gl_thin::linear::{
     xr_matrix4x4f_create_from_quaternion, xr_matrix4x4f_create_projection_fov,
     xr_matrix4x4f_create_scale, xr_matrix4x4f_create_translation,
     xr_matrix4x4f_create_translation_rotation_scale, xr_matrix4x4f_create_translation_v,
-    xr_matrix4x4f_invert_rigid_body, xr_matrix4x4f_multiply, GraphicsAPI, XrFovf, XrMatrix4x4f,
-    XrQuaternionf, XrVector3f,
+    xr_matrix4x4f_invert_rigid_body, GraphicsAPI, XrFovf, XrMatrix4x4f, XrQuaternionf, XrVector3f,
 };
 use openxr::SpaceLocation;
 use openxr_sys::Time;
@@ -74,36 +73,33 @@ impl MyScene {
             );
             let inverse_view_matrix = xr_matrix4x4f_invert_rigid_body(&view_matrix);
 
-            xr_matrix4x4f_multiply(
-                //
-                &projection_matrix,   //
-                &inverse_view_matrix, //
-            )
+            projection_matrix * inverse_view_matrix
         };
 
         {
             let model = xr_matrix4x4f_create_translation(1.0, 0.0, -2.0);
-            let model = xr_matrix4x4f_multiply(&model, &rotation_matrix);
+            let model = model * rotation_matrix;
             self.rainbow_triangle
-                .paint_color_triangle(&xr_matrix4x4f_multiply(&matrix_pv, &model), gpu_state)?;
+                .paint_color_triangle(&(matrix_pv * model), gpu_state)?;
         }
 
         if let Some(controller_1) = controller_1 {
             let model = {
-                let translate = xr_matrix4x4f_create_translation_v(&controller_1.pose.position.into());
+                let translate =
+                    xr_matrix4x4f_create_translation_v(&controller_1.pose.position.into());
                 let upright = matrix_rotation_about_x(PI);
                 let rotation_matrix =
                     xr_matrix4x4f_create_from_quaternion(&controller_1.pose.orientation.into());
                 let scale1 = 0.05;
                 let scale = xr_matrix4x4f_create_scale(scale1, scale1, scale1);
                 let model = scale;
-                let model = xr_matrix4x4f_multiply(&upright, &model);
-                let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);
-                xr_matrix4x4f_multiply(&translate, &model)
+                let model = upright * model;
+                let model = rotation_matrix * model;
+                translate * model
             };
-            let matrix = xr_matrix4x4f_multiply(&matrix_pv, &model);
             self.suzanne.draw(
-                &matrix,
+                &model,
+                &matrix_pv,
                 &[0.0, 1.0, 0.0],
                 &[0.0, 0.0, 1.0],
                 self.suzanne.index_count(),
@@ -117,11 +113,11 @@ impl MyScene {
                 let s = 0.2;
                 let scale = xr_matrix4x4f_create_scale(s, s, s);
                 let model = scale;
-                // let model = xr_matrix4x4f_multiply(&upright, &model);
-                // let model = xr_matrix4x4f_multiply(&rotation_matrix, &model);
-                xr_matrix4x4f_multiply(&translate, &model)
+                // let model = upright*model;
+                // let model = rotation_matrix*model;
+                translate * model
             };
-            let matrix = xr_matrix4x4f_multiply(&matrix_pv, &model);
+            let matrix = matrix_pv * model;
             self.text_message
                 .draw(&matrix, self.text_message.index_count(), gpu_state)
         }

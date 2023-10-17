@@ -18,7 +18,7 @@ pub fn main() {
     println!("cargo:rustc-link-search={}", openxr_libdir);
 
     //
-
+    /*
     let android_libdir = match std::env::var("ANDROID_GST_LIBDIR") {
         Ok(dir) => dir,
         Err(_) => {
@@ -31,7 +31,7 @@ pub fn main() {
     };
 
     println!("cargo:rustc-link-search={}", android_libdir);
-    println!("cargo:rustc-link-lib=ffi");
+    println!("cargo:rustc-link-lib=ffi");*/
 }
 
 fn dump_env_variables() {
