@@ -1,3 +1,4 @@
+use crate::gl_fancy::{BoundVertexArray, GPUState, OneBoundBuffer};
 use gl::types::{GLchar, GLenum, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint, GLushort};
 use std::ffi::{c_void, CString};
 use std::fmt::{Debug, Display, Formatter};
@@ -125,7 +126,7 @@ impl BufferTarget for ElementArrayBufferType {
 pub struct VertexArray(GLuint);
 
 impl VertexArray {
-    pub fn new() -> Result<Self, GLErrorWrapper> {
+    pub fn incomplete() -> Result<Self, GLErrorWrapper> {
         let mut rval = MaybeUninit::uninit();
         unsafe { gl::GenVertexArrays(1, rval.as_mut_ptr()) };
         explode_if_gl_error()?;
@@ -135,6 +136,13 @@ impl VertexArray {
     pub fn bind(&self) -> Result<(), GLErrorWrapper> {
         unsafe { gl::BindVertexArray(self.0) }
         explode_if_gl_error()
+    }
+
+    pub fn bound<'a, 'g, AT: GLBufferType>(
+        &'a self,
+        gpu_state: &'g mut GPUState,
+    ) -> Result<BoundVertexArray<'a, 'g, AT>, GLErrorWrapper> {
+        BoundVertexArray::new(self, gpu_state)
     }
 
     pub fn borrow_raw(&self) -> GLuint {
@@ -213,6 +221,15 @@ impl<'a, B, T> Drop for Buffer<'a, B, T> {
 }
 
 impl<'a, B: BufferTarget, T> Buffer<'a, B, T> {
+    pub fn bound<'g, 's>(
+        &'s mut self,
+        gpu_state: &'g mut GPUState,
+    ) -> Result<OneBoundBuffer<'s, 'g, 'a, B, T>, GLErrorWrapper> {
+        OneBoundBuffer::new(gpu_state, self)
+    }
+
+    /// # Safety
+    /// assumes that the buffer has been bound using [gl::BindBuffer]
     pub unsafe fn load_any(&mut self, value: BufferOwnership<'a, T>) -> Result<(), GLErrorWrapper> {
         self.data = value;
         let slice = self.data.as_slice();

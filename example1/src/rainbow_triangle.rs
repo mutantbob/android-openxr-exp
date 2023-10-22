@@ -4,10 +4,8 @@ use bob_shaders::masked_solid_shader::MaskedSolidShader;
 use bob_shaders::sun_phong_shader::SunPhongShader;
 use bob_shaders::GeometryBuffer;
 use gl::types::{GLfloat, GLint, GLsizei, GLushort};
-use gl_thin::gl_fancy::{BoundBuffers, BoundBuffersMut, GPUState, VertexBufferBundle};
-use gl_thin::gl_helper::{
-    self, explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, Texture,
-};
+use gl_thin::gl_fancy::{BoundBuffers, GPUState, VertexBufferBundle};
+use gl_thin::gl_helper::{self, explode_if_gl_error, GLErrorWrapper, Program, Texture};
 use gl_thin::linear::XrMatrix4x4f;
 use std::mem::size_of;
 
@@ -16,7 +14,6 @@ use std::mem::size_of;
 pub struct RainbowTriangle<'a> {
     pub program: FlatColorShader,
     pub buffers: VertexBufferBundle<'a, GLfloat, u8>,
-    pub indices_len: usize,
 }
 
 impl<'a> RainbowTriangle<'a> {
@@ -25,29 +22,24 @@ impl<'a> RainbowTriangle<'a> {
 
         program.program.use_()?;
 
-        let mut buffers = VertexBufferBundle::<'static, GLfloat, u8>::incomplete()?;
-        let indices_len = {
-            let mut bindings = buffers.bind_mut(gpu_state)?;
-            Self::configure_vertex_attributes(&bindings, &program.program, 2)?;
-
+        let buffers = {
             const COLOR_TRIANGLE: [GLfloat; 3 * 5] = [
                 -0.5, -0.5, 0.0, 1.0, 0.0, //
                 0.0, 0.5, 0.0, 0.0, 1.0, //
                 0.5, -0.5, 1.0, 0.0, 0.0,
             ];
-            bindings.vertex_buffer.load(&COLOR_TRIANGLE)?;
 
             static INDICES: [u8; 3] = [0, 1, 2];
-            let indices = &INDICES;
-            bindings.index_buffer.load(indices)?;
-            indices.len()
+            VertexBufferBundle::<'static, GLfloat, u8>::new(
+                gpu_state,
+                (&COLOR_TRIANGLE).into(),
+                (&INDICES).into(),
+                5,
+                &[(program.sal_position, 2, 0), (program.sal_color, 3, 2)],
+            )?
         };
 
-        let rval = RainbowTriangle {
-            buffers,
-            indices_len,
-            program,
-        };
+        let rval = RainbowTriangle { buffers, program };
 
         Ok(rval)
     }
@@ -64,7 +56,7 @@ impl<'a> RainbowTriangle<'a> {
 
         let binding = self.buffers.bind(gpu_state)?;
 
-        binding.draw_elements(gl::TRIANGLES, self.indices_len as i32, 0)?;
+        binding.draw_elements(gl::TRIANGLES, self.buffers.index_count as _, 0)?;
 
         drop(binding);
 
@@ -95,20 +87,6 @@ impl<'a> RainbowTriangle<'a> {
             gl::EnableVertexAttribArray(loc);
         }
         explode_if_gl_error()
-    }
-
-    fn configure_vertex_attributes<AT: GLBufferType, IT>(
-        buffers: &BoundBuffersMut<AT, IT>,
-        program: &Program,
-        xyz_width: i32,
-    ) -> Result<(), GLErrorWrapper> {
-        let stride = xyz_width + 3;
-        buffers.rig_one_attribute_by_name(program, "position", xyz_width, stride, 0)?;
-        buffers.rig_one_attribute_by_name(program, "color", 3, stride, xyz_width)?;
-        /*        Self::rig_one_va(program, "position", xyz_width, stride, 0)?;
-                Self::rig_one_va(program, "color", 3, stride, xyz_width)?;
-        */
-        Ok(())
     }
 }
 
@@ -200,29 +178,13 @@ impl TextMessage {
 
         let program = MaskedSolidShader::new()?;
 
-        let buffers = if false {
-            let mut buffers = VertexBufferBundle::incomplete()?;
-            let mut binding = buffers.bind_mut(gpu_state)?;
-
-            binding.vertex_buffer.load_owned(xyuv)?;
-
-            binding.index_buffer.load(indices)?;
-
-            program.program.use_()?; // XXX is this really necessary?
-            binding.rig_one_attribute(program.sal_position, 3, 5, 0)?;
-            binding.rig_one_attribute(program.sal_tex_coord, 2, 5, 3)?;
-
-            drop(binding);
-            buffers
-        } else {
-            VertexBufferBundle::new(
-                gpu_state,
-                xyuv.into(),
-                indices.into(),
-                3 + 2,
-                &[(program.sal_position, 3, 0), (program.sal_tex_coord, 2, 3)],
-            )?
-        };
+        let buffers = VertexBufferBundle::new(
+            gpu_state,
+            xyuv.into(),
+            indices.into(),
+            3 + 2,
+            &[(program.sal_position, 3, 0), (program.sal_tex_coord, 2, 3)],
+        )?;
 
         let texture =
             text_painting::text_to_greyscale_texture(tex_width, tex_height, 66.0, "Hail Bob!")?;

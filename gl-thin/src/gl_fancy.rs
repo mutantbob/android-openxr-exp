@@ -5,7 +5,9 @@ use crate::gl_helper::{
     VertexArray,
 };
 use gl::types::{GLenum, GLint, GLsizei, GLuint};
+use std::marker::PhantomData;
 use std::mem::size_of;
+use std::rc::Rc;
 
 /// The OpenGL API has quite a bit of state.
 /// I have barely scratched the surface of encoding it in Rust's type system,
@@ -34,24 +36,6 @@ impl GPUState {
         vertex_buffer.bind()?;
         index_buffer.bind()?;
         Ok(BoundBuffers::new(
-            self,
-            vertex_array,
-            vertex_buffer,
-            index_buffer,
-        ))
-    }
-
-    pub fn bind_vertex_array_and_buffers_mut<'a, 'g, 'd, AT, IT>(
-        &'g mut self,
-        vertex_array: &'a VertexArray,
-        vertex_buffer: &'a mut Buffer<'d, ArrayBufferType, AT>,
-        index_buffer: &'a mut Buffer<'d, ElementArrayBufferType, IT>,
-    ) -> Result<BoundBuffersMut<'a, 'g, 'd, AT, IT>, GLErrorWrapper> {
-        vertex_array.bind()?;
-        vertex_buffer.bind()?; // XXX rework this
-        index_buffer.bind()?;
-
-        Ok(BoundBuffersMut::new(
             self,
             vertex_array,
             vertex_buffer,
@@ -155,141 +139,31 @@ impl<'a, AT, IT> Drop for BoundBuffers<'a, AT, IT> {
         }
     }
 }
-//
-
-pub struct BoundBuffersMut<'a, 'g, 'd, AT, IT> {
-    pub gpu_state: &'g GPUState,
-    pub vertex_array: &'a VertexArray,
-    pub vertex_buffer: OneBoundBuffer<'a, 'g, 'd, ArrayBufferType, AT>,
-    pub index_buffer: OneBoundBuffer<'a, 'g, 'd, ElementArrayBufferType, IT>,
-}
-
-impl<'a, 'g, 'd, AT, IT> BoundBuffersMut<'a, 'g, 'd, AT, IT> {
-    // XXX I am worried that this might not mean what I think it means.
-    pub fn plain(&self) -> BoundBuffers<AT, IT> {
-        BoundBuffers {
-            gpu_state: self.gpu_state,
-            vertex_array: self.vertex_array,
-            vertex_buffer: self.vertex_buffer.buffer,
-            index_buffer: self.index_buffer.buffer,
-        }
-    }
-}
-
-impl<'a, 'g, 'd, AT, IT> BoundBuffersMut<'a, 'g, 'd, AT, IT> {
-    fn new(
-        gpu_state: &'g GPUState,
-        vertex_array: &'a VertexArray,
-        vertex_buffer: &'a mut Buffer<'d, ArrayBufferType, AT>,
-        index_buffer: &'a mut Buffer<'d, ElementArrayBufferType, IT>,
-    ) -> Self {
-        let vertex_buffer = OneBoundBuffer {
-            gpu_state,
-            buffer: vertex_buffer,
-        };
-        let index_buffer = OneBoundBuffer {
-            gpu_state,
-            buffer: index_buffer,
-        };
-        Self {
-            gpu_state,
-            vertex_array,
-            vertex_buffer,
-            index_buffer,
-        }
-    }
-}
-
-impl<'a, 'g, 'd, AT: GLBufferType, IT> BoundBuffersMut<'a, 'g, 'd, AT, IT> {
-    /// # Arguments
-    /// * `program_attribute_location` -  is the result of calling gl::GetAttribLocation for the program you will be using
-    /// * `attribute_array_width` - would be 3 for a vec3 or 2 for a vec2
-    /// * `stride` - is how many floats are in a row, because often data is packed with multiple attributes per row.  For example, XYZUV data would have stride 5 and probably two attributes with width 3 (for xyz) and 2 (for uv)
-    /// * `offset` - how many floats are between the beginning of the "row" and this attribute's data.  The UV data in an XYZUV data set would have offset 3 since the UV appears after the XYZ in each row.
-    pub fn rig_one_attribute(
-        &self,
-        program_attribute_location: GLuint,
-        attribute_array_width: GLint,
-        stride: GLsizei,
-        offset: GLsizei,
-    ) -> Result<(), GLErrorWrapper> {
-        unsafe {
-            gl::VertexAttribPointer(
-                program_attribute_location,
-                attribute_array_width,
-                AT::TYPE_CODE,
-                gl::FALSE,
-                stride * size_of::<AT>() as GLsizei,
-                gl_helper::gl_offset_for::<AT>(offset),
-            );
-        }
-        explode_if_gl_error()?;
-
-        unsafe { gl::EnableVertexAttribArray(program_attribute_location) };
-        explode_if_gl_error()
-    }
-
-    pub fn rig_one_attribute_by_name(
-        &self,
-        program: &Program,
-        name: &str,
-        attribute_array_width: GLint,
-        stride: GLsizei,
-        offset: GLsizei,
-    ) -> Result<(), GLErrorWrapper> {
-        let loc = program.get_attribute_location(name)?;
-        self.rig_one_attribute(loc, attribute_array_width, stride, offset)
-    }
-
-    /// # params
-    /// `stride` - the offset between the beginning of one sample and the beginning of the subsequent sample
-    ///
-    /// `attributes` - an iterable of (attribute_location, attribute_width, offset) tuples.
-    ///
-    /// # example
-    /// If you have some packed XYZUV values this will have a stride of 5, the XYZ at offset 0,  and UV at offset 3 (immediately after the XYZ)
-    /// ```
-    /// # use gl::types::GLuint;
-    /// # use gl_thin::gl_fancy::VertexBufferBundle;
-    /// # struct Program { sal_xyz: GLuint,
-    /// # sal_uv: GLuint,}
-    /// # fn x<AT,IT>(buffer: &VertexBufferBundle<AT,IT>, program: &Program) {}
-    /// buffer.rig_multi_attributes(5, &[
-    ///     (program.sal_xyz, 3, 0),
-    ///     (program.sal_uv, 2, 3),
-    ///   ]);
-    /// # }
-    /// ```
-    pub fn rig_multi_attributes<'i>(
-        &self,
-        stride: GLsizei,
-        attributes: impl IntoIterator<Item = &'i (GLuint, GLint, GLsizei)>,
-    ) -> Result<(), GLErrorWrapper> {
-        for (location, attribute_width, offset) in attributes {
-            self.rig_one_attribute(*location, *attribute_width, stride, *offset)?;
-        }
-        Ok(())
-    }
-}
-
-impl<'a, 'g, 'd, AT, IT> Drop for BoundBuffersMut<'a, 'g, 'd, AT, IT> {
-    fn drop(&mut self) {
-        unsafe {
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-            gl::BindVertexArray(0);
-        }
-    }
-}
 
 //
 
 pub struct OneBoundBuffer<'a, 'g, 'd, B, T> {
-    pub gpu_state: &'g GPUState,
-    pub buffer: &'a mut Buffer<'d, B, T>,
+    #[allow(dead_code)]
+    gpu_state: &'g GPUState,
+    buffer: &'a mut Buffer<'d, B, T>,
 }
 
 impl<'a, 'g, 'd, B: BufferTarget, T> OneBoundBuffer<'a, 'g, 'd, B, T> {
+    pub fn new(
+        gpu_state: &'g GPUState,
+        buffer: &'a mut Buffer<'d, B, T>,
+    ) -> Result<Self, GLErrorWrapper> {
+        buffer.bind()?;
+        Ok(Self::new_after_bind(gpu_state, buffer))
+    }
+
+    pub(crate) fn new_after_bind(
+        gpu_state: &'g GPUState,
+        buffer: &'a mut Buffer<'d, B, T>,
+    ) -> Self {
+        Self { gpu_state, buffer }
+    }
+
     pub fn load(&mut self, values: &'d [T]) -> Result<(), GLErrorWrapper> {
         self.buffer.load(values)
     }
@@ -302,21 +176,79 @@ impl<'a, 'g, 'd, B: BufferTarget, T> OneBoundBuffer<'a, 'g, 'd, B, T> {
         self.buffer.load_owned(values)
     }
 }
+
 //
 
+/// Used to store a set of vertex and index buffers.
+/// Is often used to make a [VertexBufferBundle] by adding a [VertexArray] mapping object.
+///
+/// # See also
+/// [VertexBufferBundle::from_buffers()]
+pub struct VertexBufferLite<'a, AT, IT> {
+    pub vertex_buffer: Rc<Buffer<'a, ArrayBufferType, AT>>,
+    pub index_buffer: Rc<Buffer<'a, ElementArrayBufferType, IT>>,
+    pub index_count: usize,
+}
+
+impl<'a, AT, IT> VertexBufferLite<'a, AT, IT> {
+    /// Creates a VertexBufferLite,
+    /// binds some data to the buffers,
+    ///
+    /// # Example
+    /// ```
+    /// # use gl::types::GLsizei;
+    /// # use gl_thin::gl_fancy::{GPUState, VertexBufferBundle};
+    /// # use gl_thin::gl_helper::GLErrorWrapper;
+    /// # fn x(gpu_state: &mut GPUState, xyzuv:&[f32], indices:&[u16], program: &FlatColorShader) {
+    /// let vbb = VertexBufferLite::new(
+    ///                 gpu_state,
+    ///                 xyzuv.into(),
+    ///                 indices.into(),
+    ///             )?;
+    /// # }
+    ///```
+    pub fn new(
+        gpu_state: &mut GPUState,
+        vertex_data: BufferOwnership<'a, AT>,
+        index_data: BufferOwnership<'a, IT>,
+    ) -> Result<Self, GLErrorWrapper> {
+        let index_count = index_data.as_slice().len();
+
+        let mut vertex_buffer = Buffer::new()?;
+        vertex_buffer.bound(gpu_state)?.load_any(vertex_data)?;
+        let mut index_buffer = Buffer::new()?;
+        index_buffer.bound(gpu_state)?.load_any(index_data)?;
+
+        Ok(Self {
+            vertex_buffer: Rc::new(vertex_buffer),
+            index_buffer: Rc::new(index_buffer),
+            index_count,
+        })
+    }
+}
+
+//
+
+/// Use this struct to store buffers needed to render geometry.
+/// The vertex_array stores bindings from attributes to buffers and is shader-specific
+/// The vertex_buffer and index_buffer can be reused by multiple entities.
+///
+/// # See also
+///
+/// [VertexBufferLite]
 pub struct VertexBufferBundle<'a, AT, IT> {
     pub vertex_array: VertexArray,
-    pub vertex_buffer: Buffer<'a, ArrayBufferType, AT>,
-    pub index_buffer: Buffer<'a, ElementArrayBufferType, IT>,
+    pub vertex_buffer: Rc<Buffer<'a, ArrayBufferType, AT>>,
+    pub index_buffer: Rc<Buffer<'a, ElementArrayBufferType, IT>>,
     pub index_count: usize,
 }
 
 impl<'a, AT, IT> VertexBufferBundle<'a, AT, IT> {
     pub fn incomplete() -> Result<Self, GLErrorWrapper> {
         Ok(Self {
-            vertex_array: VertexArray::new()?,
-            vertex_buffer: Buffer::new()?,
-            index_buffer: Buffer::new()?,
+            vertex_array: VertexArray::incomplete()?,
+            vertex_buffer: Rc::new(Buffer::new()?),
+            index_buffer: Rc::new(Buffer::new()?),
             index_count: 0,
         })
     }
@@ -332,20 +264,6 @@ impl<'a, AT, IT> VertexBufferBundle<'a, AT, IT> {
             &self.vertex_array,
             &self.vertex_buffer,
             &self.index_buffer,
-        )
-    }
-
-    pub fn bind_mut<'s, 'g>(
-        &'s mut self,
-        gpu_state: &'g mut GPUState,
-    ) -> Result<BoundBuffersMut<'s, 'g, 'a, AT, IT>, GLErrorWrapper> {
-        self.vertex_array.bind()?;
-        self.vertex_buffer.bind()?;
-        self.index_buffer.bind()?;
-        gpu_state.bind_vertex_array_and_buffers_mut(
-            &self.vertex_array,
-            &mut self.vertex_buffer,
-            &mut self.index_buffer,
         )
     }
 
@@ -393,16 +311,59 @@ impl<'a, AT: GLBufferType, IT: GLBufferType> VertexBufferBundle<'a, AT, IT> {
         vertex_data_stride: GLsizei,
         attributes: impl IntoIterator<Item = &'i (GLuint, GLint, GLsizei)>,
     ) -> Result<Self, GLErrorWrapper> {
-        let mut rval = Self::incomplete()?;
         let index_count = index_data.as_slice().len();
-        {
-            let mut bound = rval.bind_mut(gpu_state)?;
-            bound.vertex_buffer.load_any(vertex_data)?;
-            bound.index_buffer.load_any(index_data)?;
-            bound.rig_multi_attributes(vertex_data_stride, attributes)?;
-        }
-        rval.index_count = index_count;
-        Ok(rval)
+
+        let mut vertex_buffer = Buffer::new()?;
+        vertex_buffer.bound(gpu_state)?.load_any(vertex_data)?;
+        let mut index_buffer = Buffer::new()?;
+        index_buffer.bound(gpu_state)?.load_any(index_data)?;
+
+        let vao = VertexArray::incomplete()?;
+        vao.bound::<AT>(gpu_state)?
+            .rig_multi_attributes(vertex_data_stride, attributes)?;
+
+        Ok(Self {
+            vertex_array: vao,
+            vertex_buffer: Rc::new(vertex_buffer),
+            index_buffer: Rc::new(index_buffer),
+            index_count,
+        })
+    }
+
+    pub fn from_buffers<'i>(
+        gpu_state: &mut GPUState,
+        buffers: &VertexBufferLite<'a, AT, IT>,
+        vertex_data_stride: GLsizei,
+        attributes: impl IntoIterator<Item = &'i (GLuint, GLint, GLsizei)>,
+    ) -> Result<Self, GLErrorWrapper> {
+        let vao = VertexArray::incomplete()?;
+        vao.bound::<AT>(gpu_state)?
+            .rig_multi_attributes(vertex_data_stride, attributes)?;
+
+        Ok(Self {
+            vertex_array: vao,
+            vertex_buffer: buffers.vertex_buffer.clone(),
+            index_buffer: buffers.index_buffer.clone(),
+            index_count: buffers.index_count,
+        })
+    }
+
+    pub fn reuse<'i>(
+        &self,
+        gpu_state: &mut GPUState,
+        vertex_data_stride: GLsizei,
+        attributes: impl IntoIterator<Item = &'i (GLuint, GLint, GLsizei)>,
+    ) -> Result<Self, GLErrorWrapper> {
+        let vao = VertexArray::incomplete()?;
+        vao.bound::<AT>(gpu_state)?
+            .rig_multi_attributes(vertex_data_stride, attributes)?;
+
+        Ok(Self {
+            vertex_array: vao,
+            vertex_buffer: self.vertex_buffer.clone(),
+            index_buffer: self.index_buffer.clone(),
+            index_count: self.index_count,
+        })
     }
 }
 
@@ -559,5 +520,93 @@ impl<'g, 't> BoundTexture<'g, 't> {
     pub fn generate_mipmap(&self) -> Result<(), GLErrorWrapper> {
         unsafe { gl::GenerateMipmap(self.target) };
         explode_if_gl_error()
+    }
+}
+
+/// still experimental
+pub struct BoundVertexArray<'a, 'g, AT> {
+    pub vao: &'a VertexArray,
+    pub gpu_state: &'g GPUState,
+    phantom_data: PhantomData<AT>,
+}
+
+impl<'a, 'g, AT: GLBufferType> BoundVertexArray<'a, 'g, AT> {
+    pub(crate) fn new(
+        vao: &'a VertexArray,
+        gpu_state: &'g mut GPUState,
+    ) -> Result<Self, GLErrorWrapper> {
+        vao.bind()?;
+        Ok(Self {
+            vao,
+            gpu_state,
+            phantom_data: Default::default(),
+        })
+    }
+
+    /// # Arguments
+    /// * `program_attribute_location` -  is the result of calling gl::GetAttribLocation for the program you will be using
+    /// * `attribute_array_width` - would be 3 for a vec3 or 2 for a vec2
+    /// * `stride` - is how many floats are in a row, because often data is packed with multiple attributes per row.  For example, XYZUV data would have stride 5 and probably two attributes with width 3 (for xyz) and 2 (for uv)
+    /// * `offset` - how many floats are between the beginning of the "row" and this attribute's data.  The UV data in an XYZUV data set would have offset 3 since the UV appears after the XYZ in each row.
+    pub fn rig_one_attribute(
+        &self,
+        program_attribute_location: GLuint,
+        attribute_array_width: GLint,
+        stride: GLsizei,
+        offset: GLsizei,
+    ) -> Result<(), GLErrorWrapper> {
+        unsafe {
+            gl::VertexAttribPointer(
+                program_attribute_location,
+                attribute_array_width,
+                AT::TYPE_CODE,
+                gl::FALSE,
+                stride * size_of::<AT>() as GLsizei,
+                gl_helper::gl_offset_for::<AT>(offset),
+            );
+        }
+        explode_if_gl_error()?;
+
+        unsafe { gl::EnableVertexAttribArray(program_attribute_location) };
+        explode_if_gl_error()
+    }
+
+    /// # params
+    /// `stride` - the offset between the beginning of one sample and the beginning of the subsequent sample
+    ///
+    /// `attributes` - an iterable of (attribute_location, attribute_width, offset) tuples.
+    ///
+    /// # example
+    /// If you have some packed XYZUV values this will have a stride of 5, the XYZ at offset 0,  and UV at offset 3 (immediately after the XYZ)
+    /// ```
+    /// # use gl::types::GLuint;
+    /// # use gl_thin::gl_fancy::VertexBufferBundle;
+    /// # struct Program { sal_xyz: GLuint,
+    /// # sal_uv: GLuint,}
+    /// # fn x<AT,IT>(buffer: &VertexBufferBundle<AT,IT>, program: &Program) {}
+    /// buffer.rig_multi_attributes(5, &[
+    ///     (program.sal_xyz, 3, 0),
+    ///     (program.sal_uv, 2, 3),
+    ///   ]);
+    /// # }
+    /// ```
+    pub fn rig_multi_attributes<'i>(
+        &self,
+        stride: GLsizei,
+        attributes: impl IntoIterator<Item = &'i (GLuint, GLint, GLsizei)>,
+    ) -> Result<(), GLErrorWrapper> {
+        for (location, attribute_width, offset) in attributes {
+            self.rig_one_attribute(*location, *attribute_width, stride, *offset)?;
+        }
+        Ok(())
+    }
+}
+
+impl<'a, 'g, AT> Drop for BoundVertexArray<'a, 'g, AT> {
+    fn drop(&mut self) {
+        unsafe {
+            gl::BindVertexArray(0);
+        }
+        let _ = explode_if_gl_error();
     }
 }
