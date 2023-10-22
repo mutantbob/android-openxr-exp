@@ -449,11 +449,18 @@ pub fn xr_matrix4x4f_create_from_quaternion(quat: &XrQuaternionf) -> XrMatrix4x4
     .into()
 }
 
-pub fn xr_matrix4x4f_create_scale(x: f32, y: f32, z: f32) -> XrMatrix4x4f {
-    [
-        x, 0.0, 0.0, 0.0, 0.0, y, 0.0, 0.0, 0.0, 0.0, z, 0.0, 0.0, 0.0, 0.0, 1.0,
-    ]
-    .into()
+pub const fn xr_matrix4x4f_uniform_scale(s: f32) -> XrMatrix4x4f {
+    xr_matrix4x4f_create_scale(s, s, s)
+}
+
+#[rustfmt::skip]
+pub const fn xr_matrix4x4f_create_scale(x: f32, y: f32, z: f32) -> XrMatrix4x4f {
+    XrMatrix4x4f::new([
+        x, 0.0, 0.0, 0.0,
+        0.0, y, 0.0, 0.0,
+        0.0, 0.0, z, 0.0,
+        0.0, 0.0, 0.0, 1.0,
+    ])
 }
 
 pub fn xr_matrix4x4f_multiply(a: &XrMatrix4x4f, b: &XrMatrix4x4f) -> XrMatrix4x4f {
