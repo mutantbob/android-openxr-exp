@@ -29,10 +29,10 @@ pub struct FrameEnv {
 }
 
 impl FrameEnv {
-    pub fn new(width: u32, height: u32) -> Result<Self, GLErrorWrapper> {
+    pub fn new(width: u32, height: u32, gpu_state: &mut GPUState) -> Result<Self, GLErrorWrapper> {
         Ok(Self {
             frame_buffer: FrameBuffer::new()?,
-            depth_buffer: Texture::depth_buffer(width as i32, height as i32)?,
+            depth_buffer: Texture::depth_buffer(width as i32, height as i32, gpu_state)?,
         })
     }
 
@@ -124,6 +124,7 @@ impl ActiveRenderer {
         let frame_env = FrameEnv::new(
             vcv0.recommended_image_rect_width,
             vcv0.recommended_image_rect_height,
+            &mut gpu_state,
         )?;
         let scene = MyScene::new(&mut gpu_state)?;
 

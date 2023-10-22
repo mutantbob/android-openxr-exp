@@ -1,4 +1,4 @@
-use crate::gl_fancy::{BoundVertexArray, GPUState, OneBoundBuffer};
+use crate::gl_fancy::{BoundTexture, BoundVertexArray, GPUState, OneBoundBuffer};
 use gl::types::{GLchar, GLenum, GLfloat, GLint, GLsizei, GLsizeiptr, GLuint, GLushort};
 use std::ffi::{c_void, CString};
 use std::fmt::{Debug, Display, Formatter};
@@ -585,12 +585,16 @@ impl Texture {
         Self(Ownership::Borrowed(handle))
     }
 
-    pub fn depth_buffer(width: i32, height: i32) -> Result<Self, GLErrorWrapper> {
+    pub fn depth_buffer(
+        width: i32,
+        height: i32,
+        gpu_state: &mut GPUState,
+    ) -> Result<Self, GLErrorWrapper> {
         let rval = Self::new()?;
+
         let target = gl::TEXTURE_2D;
-        rval.bind(target)?;
-        rval.configure::<GLuint>(
-            target,
+
+        rval.bound(target, gpu_state)?.configure::<GLuint>(
             0,
             gl::DEPTH_COMPONENT24 as i32,
             width,
@@ -598,7 +602,16 @@ impl Texture {
             0,
             gl::DEPTH_COMPONENT,
         )?;
+
         Ok(rval)
+    }
+
+    pub fn bound<'g, 't>(
+        &'t self,
+        target: GLenum,
+        gpu_state: &'g mut GPUState,
+    ) -> Result<BoundTexture<'g, 't>, GLErrorWrapper> {
+        BoundTexture::new(gpu_state, self, target)
     }
 
     pub fn borrow(&self) -> GLuint {
@@ -611,7 +624,7 @@ impl Texture {
     /// bind before calling this, and don't forget to make the mipmaps;
     /// or just call write_pixels_and_generate_mipmap()
     #[allow(clippy::too_many_arguments)]
-    pub fn configure<T: GLBufferType>(
+    pub unsafe fn configure<T: GLBufferType>(
         &self,
         target: GLenum,
         level: i32,
@@ -656,6 +669,7 @@ impl Texture {
         explode_if_gl_error()
     }
 
+    #[deprecated]
     pub fn get_width(&self) -> Result<GLint, GLErrorWrapper> {
         self.bind(gl::TEXTURE_2D)?;
 
@@ -666,6 +680,7 @@ impl Texture {
         Ok(rval)
     }
 
+    #[deprecated]
     pub fn get_height(&self) -> Result<GLint, GLErrorWrapper> {
         self.bind(gl::TEXTURE_2D)?;
 
@@ -676,6 +691,7 @@ impl Texture {
         Ok(rval)
     }
 
+    #[deprecated]
     pub fn get_dimensions(&self) -> Result<(GLint, GLint), GLErrorWrapper> {
         self.bind(gl::TEXTURE_2D)?;
 
@@ -690,6 +706,8 @@ impl Texture {
         Ok((width, height))
     }
 
+    #[deprecated]
+    #[allow(deprecated)]
     pub fn write_pixels_and_generate_mipmap<T: GLBufferType>(
         &mut self,
         target: GLenum,
@@ -712,6 +730,7 @@ impl Texture {
         unsafe { self.generate_mipmap() }
     }
 
+    #[deprecated]
     /// Remember to populate the mipmap by either writing all the different mipmap `level`s or using `self.generate_mipmap()`
     pub fn write_pixels<T: GLBufferType>(
         &mut self,

@@ -186,8 +186,13 @@ impl TextMessage {
             &[(program.sal_position, 3, 0), (program.sal_tex_coord, 2, 3)],
         )?;
 
-        let texture =
-            text_painting::text_to_greyscale_texture(tex_width, tex_height, 66.0, "Hail Bob!")?;
+        let texture = text_painting::text_to_greyscale_texture(
+            tex_width,
+            tex_height,
+            66.0,
+            "Hail Bob!",
+            gpu_state,
+        )?;
 
         let rval = Self {
             program,
