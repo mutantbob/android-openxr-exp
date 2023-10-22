@@ -48,7 +48,8 @@ impl RawTextureShader {
     }
 
     fn set_texture(&self, index: u32) -> Result<(), GLErrorWrapper> {
-        self.shader.set_uniform_1i("tex", index as i32)
+        self.shader
+            .set_uniform_1i(self.shader.get_uniform_location("tex")? as _, index as i32)
     }
 
     pub fn draw<AT, IT: GLBufferType>(

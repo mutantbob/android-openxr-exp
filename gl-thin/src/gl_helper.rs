@@ -445,13 +445,33 @@ impl Program {
 
     //
 
-    pub fn set_uniform_1i(&self, name: &str, v0: GLint) -> Result<(), GLErrorWrapper> {
-        unsafe { gl::Uniform1i(self.get_uniform_location(name)? as GLint, v0) }
+    pub fn set_uniform_1i(&self, location: GLint, v0: GLint) -> Result<(), GLErrorWrapper> {
+        unsafe { gl::Uniform1i(location, v0) }
         explode_if_gl_error()
     }
 
     pub fn set_uniform_1f(&self, location: GLint, v0: GLfloat) -> Result<(), GLErrorWrapper> {
         unsafe { gl::Uniform1f(location, v0) }
+        explode_if_gl_error()
+    }
+
+    pub fn set_uniform_2f(
+        &self,
+        location: GLint,
+        v0: GLfloat,
+        v1: GLfloat,
+    ) -> Result<(), GLErrorWrapper> {
+        unsafe { gl::Uniform2f(location, v0, v1) }
+        explode_if_gl_error()
+    }
+
+    pub fn set_uniform_2fv(
+        &self,
+        location: GLint,
+        val: &[GLfloat; 2],
+    ) -> Result<(), GLErrorWrapper> {
+        // Uniform2fv has failed me in the past
+        unsafe { gl::Uniform2f(location, val[0], val[1]) }
         explode_if_gl_error()
     }
 

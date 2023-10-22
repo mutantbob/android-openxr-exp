@@ -102,7 +102,10 @@ impl MaskedSolidShader {
     }
 
     fn set_texture(&self, texture_unit: u32) -> Result<(), GLErrorWrapper> {
-        self.program.set_uniform_1i("tex", texture_unit as GLint)
+        self.program.set_uniform_1i(
+            self.program.get_uniform_location("tex")? as _,
+            texture_unit as GLint,
+        )
     }
 
     fn set_color_fg(&self, color: &[f32; 4]) -> Result<(), GLErrorWrapper> {
