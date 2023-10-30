@@ -77,7 +77,10 @@ impl OpenXRComponent {
             };
             let mut enabled_extensions = ExtensionSet::default();
             enabled_extensions.khr_opengl_es_enable = true;
-            enabled_extensions.khr_android_create_instance = true;
+            #[cfg(target_os = "android")]
+            {
+                enabled_extensions.khr_android_create_instance = true;
+            }
 
             let tmp: Result<Instance, openxr_sys::Result> =
                 entry.create_instance(&application_info, &enabled_extensions, &[]);
@@ -102,11 +105,18 @@ impl OpenXRComponent {
         check_version_requirements(&instance, system_id, gl_major_version, gl_minor_version)?;
 
         let (xr_session, frame_waiter, frame_stream) = {
-            let info = SessionCreateInfo::Android {
-                context: gl_context,
-                display: gl_display,
-                //system_id,
-                config: std::ptr::null_mut(),
+            let info = {
+                #[cfg(target_os = "android")]
+                {
+                    SessionCreateInfo::Android {
+                        context: gl_context,
+                        display: gl_display,
+                        //system_id,
+                        config: std::ptr::null_mut(),
+                    }
+                }
+
+                // XXX other architectures go here
             };
 
             unsafe { instance.create_session(system_id, &info) }
@@ -408,7 +418,10 @@ impl OpenXRComponent {
     pub fn message_for_error(instance: &openxr_sys::Instance, result: XrResult) -> String {
         let mut msg = [0; MAX_RESULT_STRING_SIZE];
         if XrResult::SUCCESS.into_raw()
-            != unsafe { result_to_string(*instance, result, &mut msg as *mut _).into_raw() }
+            != unsafe {
+                let msg_ptr = &mut msg as *mut u8;
+                result_to_string(*instance, result, msg_ptr as *mut _).into_raw()
+            }
         {
             msg[0] = 0;
         }
