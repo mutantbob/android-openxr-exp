@@ -116,6 +116,10 @@ impl OpenXRComponent {
                     }
                 }
 
+                #[cfg(target_os = "linux")]
+                {
+                    openxr::opengl::SessionCreateInfo::Xlib {}
+                }
                 // XXX other architectures go here
             };
 
