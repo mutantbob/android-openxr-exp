@@ -14,7 +14,7 @@ use glutin::config::{ConfigTemplate, ConfigTemplateBuilder, GlConfig};
 use glutin::context::{AsRawContext, ContextAttributesBuilder, RawContext};
 use glutin::display::{AsRawDisplay, Display, DisplayApiPreference, GlDisplay, RawDisplay};
 use log::debug;
-use openxr::{Graphics, SpaceLocation, View, ViewConfigurationView};
+use openxr::{Graphics, OpenGlEs, SpaceLocation, View, ViewConfigurationView};
 use openxr_sys::{Time, ViewConfigurationType};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle};
 use std::error::Error;
@@ -74,7 +74,7 @@ pub fn skybox_view_matrix(rotation: &XrQuaternionf) -> XrMatrix4x4f {
 pub struct ActiveRenderer {
     pub frame_env: FrameEnv,
     pub scene: MyScene,
-    pub openxr: OpenXRComponent,
+    pub openxr: OpenXRComponent<openxr::OpenGlEs>,
     pub gpu_state: GPUState,
 
     inputs: XrInputs,
@@ -118,7 +118,8 @@ impl ActiveRenderer {
 
         let mut gpu_state = GPUState::new();
 
-        let openxr = OpenXRComponent::new(display_ptr as *mut c_void, raw_context as *mut c_void)?;
+        let openxr =
+            OpenXRComponent::new_android(display_ptr as *mut c_void, raw_context as *mut c_void)?;
 
         let vcv0 = openxr.view_config_views[0];
         let frame_env = FrameEnv::new(
@@ -196,7 +197,8 @@ impl ActiveRenderer {
     pub fn draw_inner(&mut self) -> Result<(), XrErrorWrapped> {
         let gpu_state = &mut self.gpu_state;
 
-        let before_paint = |openxr: &OpenXRComponent, frame_state: &openxr::FrameState| {
+        let before_paint = |openxr: &OpenXRComponent<OpenGlEs>,
+                            frame_state: &openxr::FrameState| {
             self.inputs.sync_actions(&openxr.xr_session).unwrap();
 
             let location = self.inputs.controller_1_locate_if_active(
@@ -215,7 +217,7 @@ impl ActiveRenderer {
             |view_i: &View,
              vcv: &ViewConfigurationView,
              predicted_display_time,
-             render_destination,
+             &render_destination: &u32,
              // gpu_state: &mut GPUState,
              (controller_1, gpu_state): &mut (Option<SpaceLocation>, &mut GPUState)| {
                 Self::paint_one_view(
@@ -230,7 +232,7 @@ impl ActiveRenderer {
                 )
                 .unwrap();
             };
-        let after_paint = |_: &OpenXRComponent, _: &openxr::FrameState, _| {};
+        let after_paint = |_: &OpenXRComponent<OpenGlEs>, _: &openxr::FrameState, _| {};
 
         self.openxr.paint_vr_multiview(
             before_paint,

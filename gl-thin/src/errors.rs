@@ -26,9 +26,7 @@ impl XrErrorWrapped {
         msg: impl Into<String>,
     ) -> XrErrorWrapped {
         let x = match instance {
-            Some(instance) => {
-                crate::openxr_helpers::OpenXRComponent::message_for_error(&instance.as_raw(), e)
-            }
+            Some(instance) => crate::openxr_helpers::message_for_error(&instance.as_raw(), e),
             None => format!("OpenXR failed {:?}", e),
         };
         XrErrorWrapped::new(x, msg.into())

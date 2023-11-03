@@ -1,8 +1,8 @@
 use crate::errors::{Wrappable, XrErrorWrapped};
+use crate::gl_helper::GLErrorWrapper;
 use gl::types::GLint;
 use itertools::izip;
 use log::{debug, error, info, warn};
-use openxr::opengles::SessionCreateInfo;
 use openxr::sys::{result_to_string, Result as XrResult, MAX_RESULT_STRING_SIZE};
 use openxr::OpenGlEs;
 use openxr::{
@@ -20,18 +20,18 @@ use std::ffi::{c_void, CStr};
 
 pub type Backend = OpenGlEs;
 
-pub struct OpenXRComponent {
+pub struct OpenXRComponent<G: Graphics> {
     pub xr_instance: Instance,
-    pub xr_session: Session<Backend>,
+    pub xr_session: Session<G>,
     pub frame_waiter: FrameWaiter,
-    pub frame_stream: FrameStream<Backend>,
+    pub frame_stream: FrameStream<G>,
     pub xr_space: Space,
-    pub xr_swapchain_images: Vec<Vec<<Backend as Graphics>::SwapchainImage>>,
-    pub xr_swapchains: Vec<Swapchain<Backend>>,
+    pub xr_swapchain_images: Vec<Vec<G::SwapchainImage>>,
+    pub xr_swapchains: Vec<Swapchain<G>>,
     pub view_config_views: Vec<ViewConfigurationView>,
 }
 
-impl Drop for OpenXRComponent {
+impl<G: Graphics> Drop for OpenXRComponent<G> {
     fn drop(&mut self) {
         if let Err(e) = self.xr_session.end() {
             self.complain_about_error(e);
@@ -39,7 +39,7 @@ impl Drop for OpenXRComponent {
     }
 }
 
-impl OpenXRComponent {
+impl<G: Graphics> OpenXRComponent<G> {
     /// # Safety
     /// the gl_display and gl_context are passed to the OpenXR create_session() call.
     /// How you get them will vary by architecture.
@@ -55,20 +55,12 @@ impl OpenXRComponent {
     ///  let RawDisplay::Egl(display_ptr) = glutin_display.raw_display();
     /// ```
     pub fn new(
-        gl_display: *mut c_void,
-        gl_context: *mut c_void,
-    ) -> Result<OpenXRComponent, XrErrorWrapped> {
+        entry: &Entry,
+        info: &<G as Graphics>::SessionCreateInfo,
+        acceptable_format: impl Fn(&G::Format) -> bool,
+        pre_session_check: impl Fn(&Instance, SystemId) -> Result<(), XrErrorWrapped>,
+    ) -> Result<Self, XrErrorWrapped> {
         let instance = {
-            let entry: Entry = Entry::linked();
-            #[cfg(target_os = "android")]
-            {
-                if let Err(e) = entry.initialize_android_loader() {
-                    return Err(XrErrorWrapped::simple(format!(
-                        "failed to initialize android loader  : {}",
-                        e
-                    )));
-                }
-            }
             let application_info = ApplicationInfo {
                 application_name: "GStreamer OpenXR video sink",
                 application_version: 0x1,
@@ -95,35 +87,10 @@ impl OpenXRComponent {
             .enumerate_view_configuration_views(system_id, ViewConfigurationType::PRIMARY_STEREO)
             .annotate_if_err(Some(&instance), "failed to enumerate configuration views")?;
 
-        let mut gl_major_version = -1;
-        let mut gl_minor_version = -1;
-        unsafe { gl::GetIntegerv(gl::MAJOR_VERSION, &mut gl_major_version) };
-        unsafe { gl::GetIntegerv(gl::MINOR_VERSION, &mut gl_minor_version) };
-
-        debug!("time to check the version requirements");
-
-        check_version_requirements(&instance, system_id, gl_major_version, gl_minor_version)?;
+        pre_session_check(&instance, system_id)?;
 
         let (xr_session, frame_waiter, frame_stream) = {
-            let info = {
-                #[cfg(target_os = "android")]
-                {
-                    SessionCreateInfo::Android {
-                        context: gl_context,
-                        display: gl_display,
-                        //system_id,
-                        config: std::ptr::null_mut(),
-                    }
-                }
-
-                #[cfg(target_os = "linux")]
-                {
-                    openxr::opengl::SessionCreateInfo::Xlib {}
-                }
-                // XXX other architectures go here
-            };
-
-            unsafe { instance.create_session(system_id, &info) }
+            unsafe { instance.create_session::<G>(system_id, info) }
                 .annotate_if_err(Some(&instance), "failed to create session")?
         };
 
@@ -155,11 +122,7 @@ impl OpenXRComponent {
                 .enumerate_swapchain_formats()
                 .annotate_if_err(Some(&instance), "failed to enumerate swapchain formats")?;
 
-            let swapchain_format = swapchain_formats.into_iter().find(|&fmt| {
-                fmt == gl::RGBA8
-                    || fmt == gl::RGBA8_SNORM
-                    || (fmt == gl::SRGB8_ALPHA8 && gl_major_version >= 3)
-            });
+            let swapchain_format = swapchain_formats.into_iter().find(acceptable_format);
 
             match swapchain_format {
                 None => {
@@ -180,9 +143,7 @@ impl OpenXRComponent {
                     view_config_i.recommended_image_rect_width,
                     view_config_i.recommended_image_rect_height
                 );
-                let fmt: u32 = swapchain_format;
-                debug!("format {}", fmt);
-                let swapchain_create_info = SwapchainCreateInfo::<Backend> {
+                let swapchain_create_info = SwapchainCreateInfo::<G> {
                     create_flags: SwapchainCreateFlags::EMPTY,
                     usage_flags: SwapchainUsageFlags::SAMPLED
                         | SwapchainUsageFlags::COLOR_ATTACHMENT,
@@ -222,7 +183,7 @@ impl OpenXRComponent {
             swapchain_images
         };
 
-        let thing = OpenXRComponent {
+        let thing = Self {
             xr_instance: instance,
             xr_session,
             frame_waiter,
@@ -295,15 +256,9 @@ impl OpenXRComponent {
     /// render all the camera views needed by the openxr system
     pub fn paint_vr_multiview<T>(
         &mut self,
-        before_paint: impl FnOnce(&OpenXRComponent, &FrameState) -> T,
-        mut paint_one_view: impl FnMut(
-            &View,
-            &ViewConfigurationView,
-            Time,
-            <Backend as Graphics>::SwapchainImage,
-            &mut T,
-        ),
-        mut after_paint: impl FnMut(&OpenXRComponent, &FrameState, T),
+        before_paint: impl FnOnce(&Self, &FrameState) -> T,
+        mut paint_one_view: impl FnMut(&View, &ViewConfigurationView, Time, &G::SwapchainImage, &mut T),
+        mut after_paint: impl FnMut(&Self, &FrameState, T),
         view_configuration_type: ViewConfigurationType,
     ) -> Result<(), XrErrorWrapped> {
         let frame_state = self
@@ -356,7 +311,7 @@ impl OpenXRComponent {
                 continue;
             };
 
-            let color_buffer = sci[buffer_index as usize];
+            let color_buffer = &sci[buffer_index as usize];
 
             paint_one_view(view_i, vcv, predicted_display_time, color_buffer, &mut arg);
 
@@ -397,7 +352,7 @@ impl OpenXRComponent {
                 .space(&self.xr_space)
                 .views(projection_views.as_slice());
 
-            let projection_layers: Vec<&CompositionLayerBase<Backend>> = vec![&projection_layer];
+            let projection_layers: Vec<&CompositionLayerBase<G>> = vec![&projection_layer];
 
             self.frame_stream
                 .end(
@@ -416,26 +371,84 @@ impl OpenXRComponent {
     }
 
     pub fn complain_about_error0(instance: &openxr_sys::Instance, result: XrResult) {
-        error!("{}", Self::message_for_error(instance, result));
+        error!("{}", message_for_error(instance, result));
     }
+}
 
-    pub fn message_for_error(instance: &openxr_sys::Instance, result: XrResult) -> String {
-        let mut msg = [0; MAX_RESULT_STRING_SIZE];
-        if XrResult::SUCCESS.into_raw()
-            != unsafe {
-                let msg_ptr = &mut msg as *mut u8;
-                result_to_string(*instance, result, msg_ptr as *mut _).into_raw()
-            }
+#[cfg(target_os = "android")]
+impl OpenXRComponent<OpenGlEs> {
+    /// # Safety
+    /// the gl_display and gl_context are passed to the OpenXR create_session() call.
+    /// How you get them will vary by architecture.
+    ///
+    /// Android EGL:
+    /// ```
+    /// # use glutin::display::{AsRawDisplay, Display, DisplayApiPreference, RawDisplay};
+    /// let raw_display = event_loop.raw_display_handle();
+    ///
+    ///  let Display::Egl(glutin_display) =
+    ///      unsafe { glutin::display::Display::new(raw_display, DisplayApiPreference::Egl) }?;
+    ///
+    ///  let RawDisplay::Egl(display_ptr) = glutin_display.raw_display();
+    /// ```
+    pub fn new_android(
+        gl_display: *mut c_void,
+        gl_context: *mut c_void,
+    ) -> Result<Self, XrErrorWrapped> {
+        let entry: Entry = Entry::linked();
         {
-            msg[0] = 0;
+            if let Err(e) = entry.initialize_android_loader() {
+                return Err(XrErrorWrapped::simple(format!(
+                    "failed to initialize android loader  : {}",
+                    e
+                )));
+            }
         }
-        match CStr::from_bytes_until_nul(&msg) {
-            Ok(msg) => {
-                format!("OpenXR call failed: {:?} ({})", msg, result)
-            }
-            Err(_) => {
-                format!("OpenXR call failed: {:x?} ({})", msg, result)
-            }
+
+        let mut gl_major_version = -1;
+        let mut gl_minor_version = -1;
+        unsafe { gl::GetIntegerv(gl::MAJOR_VERSION, &mut gl_major_version) };
+        unsafe { gl::GetIntegerv(gl::MINOR_VERSION, &mut gl_minor_version) };
+        let session_pre_check =
+            |instance: &Instance, system_id: SystemId| -> Result<(), XrErrorWrapped> {
+                debug!("time to check the version requirements");
+
+                check_version_requirements(instance, system_id, gl_major_version, gl_minor_version)
+            };
+
+        let info = openxr::opengles::SessionCreateInfo::Android {
+            context: gl_context,
+            display: gl_display,
+            //system_id,
+            config: std::ptr::null_mut(),
+        };
+
+        let acceptable_format = |&fmt: &u32| {
+            fmt == gl::RGBA8
+                || fmt == gl::RGBA8_SNORM
+                || (fmt == gl::SRGB8_ALPHA8 && gl_major_version >= 3)
+        };
+
+        Self::new(&entry, &info, acceptable_format, session_pre_check)
+    }
+}
+
+pub fn message_for_error(instance: &openxr_sys::Instance, result: XrResult) -> String {
+    let mut msg = [0; MAX_RESULT_STRING_SIZE];
+    if XrResult::SUCCESS.into_raw()
+        != unsafe {
+            let msg_ptr = &mut msg as *mut u8;
+            result_to_string(*instance, result, msg_ptr as *mut _).into_raw()
+        }
+    {
+        msg[0] = 0;
+    }
+    match CStr::from_bytes_until_nul(&msg) {
+        Ok(msg) => {
+            format!("OpenXR call failed: {:?} ({})", msg, result)
+        }
+        Err(_) => {
+            format!("OpenXR call failed: {:x?} ({})", msg, result)
         }
     }
 }
@@ -460,16 +473,16 @@ pub fn check_version_requirements(
     Ok(())
 }
 
-pub fn projection_view_for<'a>(
+pub fn projection_view_for<'a, G: Graphics>(
     view: &View,
-    swapchain: &'a Swapchain<Backend>,
+    swapchain: &'a Swapchain<G>,
     view_config_view: &ViewConfigurationView,
-) -> openxr::CompositionLayerProjectionView<'a, Backend> {
+) -> openxr::CompositionLayerProjectionView<'a, G> {
     openxr::CompositionLayerProjectionView::new()
         .pose(view.pose)
         .fov(view.fov)
         .sub_image(
-            openxr::SwapchainSubImage::<Backend>::new()
+            openxr::SwapchainSubImage::<G>::new()
                 .swapchain(swapchain)
                 .image_rect(Rect2Di {
                     offset: Offset2Di { x: 0, y: 0 },
@@ -489,9 +502,9 @@ pub struct RightHandTracker {
 }
 
 impl RightHandTracker {
-    pub fn new(
+    pub fn new<G: Graphics>(
         instance: &Instance,
-        xr_session: &Session<Backend>,
+        xr_session: &Session<G>,
         action_set: &ActionSet,
     ) -> Result<Self, XrErrorWrapped> {
         let user_hand_left = instance
@@ -545,9 +558,9 @@ impl RightHandTracker {
         Ok(Self { space })
     }
 
-    pub fn action_set_from(
+    pub fn action_set_from<G: Graphics>(
         instance: &Instance,
-        xr_session: &Session<Backend>,
+        xr_session: &Session<G>,
     ) -> Result<(ActionSet, Self), XrErrorWrapped> {
         let action_set = instance
             .create_action_set("pants", "pants", 0)
