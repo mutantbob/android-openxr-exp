@@ -1,5 +1,4 @@
 use crate::errors::{Wrappable, XrErrorWrapped};
-use crate::gl_helper::GLErrorWrapper;
 use gl::types::GLint;
 use itertools::izip;
 use log::{debug, error, info, warn};
