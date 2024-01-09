@@ -509,6 +509,11 @@ impl Program {
         explode_if_gl_error()
     }
 
+    pub fn set_uniform_4fv(&self, location: GLint, vec4: &[f32; 4]) -> Result<(), GLErrorWrapper> {
+        unsafe { gl::Uniform4fv(location, 1, vec4.as_ptr()) }
+        explode_if_gl_error()
+    }
+
     pub fn set_mat4(&self, location: GLint, val: &[[f32; 4]; 4]) -> Result<(), GLErrorWrapper> {
         unsafe { gl::UniformMatrix4fv(location, 1, 0, val[0].as_ptr()) }
         explode_if_gl_error()
