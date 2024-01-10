@@ -1,8 +1,8 @@
 use crate::rainbow_triangle::{RainbowTriangle, Suzanne, TextMessage};
+#[cfg(feature = "png")]
 use crate::textured_quad::TexturedQuad;
-use gl::types::GLint;
 use gl_thin::gl_fancy::GPUState;
-use gl_thin::gl_helper::{explode_if_gl_error, GLErrorWrapper, Texture, TextureWithTarget};
+use gl_thin::gl_helper::{explode_if_gl_error, GLErrorWrapper};
 use gl_thin::linear::{
     xr_matrix4x4f_create_from_quaternion, xr_matrix4x4f_create_projection_fov,
     xr_matrix4x4f_create_scale, xr_matrix4x4f_create_translation,
@@ -18,6 +18,8 @@ pub struct MyScene {
     pub rainbow_triangle: RainbowTriangle<'static>,
     pub suzanne: Suzanne,
     pub text_message: TextMessage,
+    #[cfg(feature = "png")]
+    pub poster: TexturedQuad,
 }
 
 impl MyScene {
@@ -26,6 +28,11 @@ impl MyScene {
             rainbow_triangle: RainbowTriangle::new(gpu_state)?,
             suzanne: Suzanne::new(gpu_state)?,
             text_message: TextMessage::new(gpu_state)?,
+            #[cfg(feature = "png")]
+            poster: poster::default_poster(
+                gpu_state,
+                &poster::default_poster_png().expect("failed to parse internal PNG"),
+            )?,
         })
     }
 
@@ -86,19 +93,7 @@ impl MyScene {
         }
 
         if let Some(controller_1) = controller_1 {
-            let model = {
-                let translate =
-                    xr_matrix4x4f_create_translation_v(&controller_1.pose.position.into());
-                let upright = matrix_rotation_about_x(PI);
-                let rotation_matrix =
-                    xr_matrix4x4f_create_from_quaternion(&controller_1.pose.orientation.into());
-                let scale1 = 0.05;
-                let scale = xr_matrix4x4f_create_scale(scale1, scale1, scale1);
-                let model = scale;
-                let model = upright * model;
-                let model = rotation_matrix * model;
-                translate * model
-            };
+            let model = Self::suzanne_hand_matrix(controller_1);
             self.suzanne.draw(
                 &model,
                 &matrix_pv,
@@ -121,8 +116,100 @@ impl MyScene {
             };
             let matrix = matrix_pv * model;
             self.text_message
-                .draw(&matrix, self.text_message.index_count(), gpu_state)
+                .draw(&matrix, self.text_message.index_count(), gpu_state)?;
         }
+
+        #[cfg(feature = "png")]
+        {
+            use std::f32::consts::FRAC_1_SQRT_2;
+            let model = matrix_rotation_about_y2(FRAC_1_SQRT_2, -FRAC_1_SQRT_2);
+            let model = xr_matrix4x4f_create_translation(-2.0, 0.0, -2.0) * model;
+            let matrix = matrix_pv * model;
+            self.poster.paint_quad(&matrix, gpu_state)?;
+        }
+
+        Ok(())
+    }
+
+    /// matrix to attach the monkey head to the controller
+    fn suzanne_hand_matrix(controller_1: &SpaceLocation) -> XrMatrix4x4f {
+        let translate = xr_matrix4x4f_create_translation_v(&controller_1.pose.position.into());
+        let upright = matrix_rotation_about_x(PI);
+        let rotation_matrix =
+            xr_matrix4x4f_create_from_quaternion(&controller_1.pose.orientation.into());
+        let scale1 = 0.05;
+        let scale = xr_matrix4x4f_create_scale(scale1, scale1, scale1);
+        let model = scale;
+        let model = upright * model;
+        let model = rotation_matrix * model;
+        translate * model
+    }
+}
+
+#[cfg(feature = "png")]
+mod poster {
+    use crate::textured_quad::TexturedQuad;
+    use gl::types::GLint;
+    use gl_thin::gl_fancy::GPUState;
+    use gl_thin::gl_helper::{GLErrorWrapper, Texture, TextureWithTarget};
+    use png::{ColorType, OutputInfo};
+
+    pub fn default_poster_png() -> Result<DecodedPNG, png::DecodingError> {
+        let raw = include_bytes!("sohma_g_dawling_poster.png");
+
+        let decoder = png::Decoder::new(raw.as_slice());
+        let mut reader = decoder.read_info()?;
+        let mut buf = vec![0u8; reader.output_buffer_size()];
+        let info = reader.next_frame(&mut buf)?;
+        Ok(DecodedPNG { buf, info })
+    }
+
+    pub struct DecodedPNG {
+        buf: Vec<u8>,
+        info: OutputInfo,
+    }
+
+    impl DecodedPNG {
+        pub fn bytes(&self) -> &[u8] {
+            &self.buf[..self.info.buffer_size()]
+        }
+
+        pub fn width(&self) -> i32 {
+            self.info.width as i32
+        }
+        pub fn height(&self) -> i32 {
+            self.info.height as i32
+        }
+    }
+
+    pub fn default_poster(
+        gpu_state: &mut GPUState,
+        image: &DecodedPNG,
+    ) -> Result<TexturedQuad, GLErrorWrapper> {
+        let texture = Texture::new()?;
+
+        let memory_format = match image.info.color_type {
+            ColorType::Grayscale => gl::RED,
+            ColorType::Rgb => gl::RGB,
+            ColorType::Indexed => panic!("what is indexed?"),
+            ColorType::GrayscaleAlpha => gl::RGB,
+            ColorType::Rgba => gl::RGBA,
+        };
+        let target = gl::TEXTURE_2D;
+        texture
+            .bound(target, gpu_state)?
+            .write_pixels_and_generate_mipmap(
+                0,
+                memory_format as GLint,
+                image.width(),
+                image.height(),
+                memory_format,
+                image.bytes(),
+            )?;
+
+        let texture = TextureWithTarget::new(texture, target);
+
+        TexturedQuad::new(gpu_state, 0.5, 0.5, texture)
     }
 }
 
@@ -155,12 +242,16 @@ pub fn matrix_rotation_about_z(theta: f32) -> XrMatrix4x4f {
     ].into()
 }
 
-#[rustfmt::skip]
 pub fn matrix_rotation_about_y(theta: f32) -> XrMatrix4x4f {
+    matrix_rotation_about_y2(theta.cos(), theta.sin())
+}
+
+#[rustfmt::skip]
+pub fn matrix_rotation_about_y2(cos: f32, sin: f32) -> XrMatrix4x4f {
     [
-        theta.cos(), 0.0, theta.sin(), 0.0, //
+        cos, 0.0, sin, 0.0, //
         0.0, 1.0, 0.0, 0.0, //
-        -theta.sin(), 0.0, theta.cos(), 0.0, //
+        -sin, 0.0, cos, 0.0, //
         0.0, 0.0, 0.0, 1.0f32,
     ].into()
 }

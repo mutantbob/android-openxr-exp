@@ -383,6 +383,7 @@ dependencies = [
  "log",
  "openxr",
  "openxr-sys",
+ "png",
  "raw-window-handle",
  "rusttype",
  "winit",

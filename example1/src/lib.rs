@@ -17,6 +17,7 @@ pub mod rainbow_triangle;
 pub mod scene;
 pub mod suzanne;
 pub mod text_painting;
+pub mod textured_quad;
 pub mod xr_input;
 
 //
