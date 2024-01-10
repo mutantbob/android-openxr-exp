@@ -1,6 +1,6 @@
 use gl::types::{GLfloat, GLint, GLsizei, GLuint};
-use gl_thin::gl_fancy::BoundBuffers;
-use gl_thin::gl_helper::{gl_offset_for, GLBufferType, GLErrorWrapper, Program};
+use gl_thin::gl_fancy::{ActiveTextureUnit, BoundBuffers, GPUState};
+use gl_thin::gl_helper::{gl_offset_for, GLBufferType, GLErrorWrapper, Program, TextureWithTarget};
 use gl_thin::linear::XrMatrix4x4f;
 use std::mem::size_of;
 
@@ -36,9 +36,13 @@ impl RawTextureShader {
     pub fn set_params(
         &self,
         matrix: &XrMatrix4x4f,
-        texture_image_unit: u32,
+        texture: &TextureWithTarget,
+        texture_image_unit: ActiveTextureUnit,
+        gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
         self.shader.use_()?;
+        gpu_state.set_active_texture(texture_image_unit)?;
+        texture.bind()?;
         self.set_texture(texture_image_unit)?;
         self.set_u_matrix(matrix)
     }
@@ -47,9 +51,11 @@ impl RawTextureShader {
         self.shader.set_mat4u(self.sul_matrix, matrix.slice())
     }
 
-    fn set_texture(&self, index: u32) -> Result<(), GLErrorWrapper> {
-        self.shader
-            .set_uniform_1i(self.shader.get_uniform_location("tex")? as _, index as i32)
+    fn set_texture(&self, texture_unit: ActiveTextureUnit) -> Result<(), GLErrorWrapper> {
+        self.shader.set_uniform_1i(
+            self.shader.get_uniform_location("tex")? as _,
+            texture_unit.0 as i32,
+        )
     }
 
     pub fn draw<AT, IT: GLBufferType>(
@@ -88,11 +94,13 @@ impl RawTextureShader {
     pub fn draw2<AT, IT: GLBufferType>(
         &self,
         matrix: &XrMatrix4x4f,
-        texture_image_unit: u32,
+        texture: &TextureWithTarget,
+        texture_image_unit: ActiveTextureUnit,
         gl_ram: &BoundBuffers<AT, IT>,
         indices_count: GLsizei,
+        gpu_state: &mut GPUState,
     ) -> Result<(), GLErrorWrapper> {
-        self.set_params(matrix, texture_image_unit)?;
+        self.set_params(matrix, texture, texture_image_unit, gpu_state)?;
 
         self.draw(gl_ram, indices_count)
     }

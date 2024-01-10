@@ -1,6 +1,8 @@
 use crate::rainbow_triangle::{RainbowTriangle, Suzanne, TextMessage};
+use crate::textured_quad::TexturedQuad;
+use gl::types::GLint;
 use gl_thin::gl_fancy::GPUState;
-use gl_thin::gl_helper::{explode_if_gl_error, GLErrorWrapper};
+use gl_thin::gl_helper::{explode_if_gl_error, GLErrorWrapper, Texture, TextureWithTarget};
 use gl_thin::linear::{
     xr_matrix4x4f_create_from_quaternion, xr_matrix4x4f_create_projection_fov,
     xr_matrix4x4f_create_scale, xr_matrix4x4f_create_translation,

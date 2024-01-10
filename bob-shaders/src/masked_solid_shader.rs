@@ -1,7 +1,9 @@
 use crate::GeometryBuffer;
 use gl::types::{GLenum, GLint, GLsizei};
 use gl_thin::gl_fancy::GPUState;
-use gl_thin::gl_helper::{explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, Texture};
+use gl_thin::gl_helper::{
+    explode_if_gl_error, GLBufferType, GLErrorWrapper, Program, TextureWithTarget,
+};
 use gl_thin::linear::XrMatrix4x4f;
 use log::debug;
 
@@ -48,7 +50,7 @@ impl MaskedSolidShader {
     pub fn draw<AT, IT: GLBufferType>(
         &self,
         matrix: &XrMatrix4x4f,
-        mask: &Texture,
+        mask: &TextureWithTarget,
         color_fg: &[f32; 4],
         color_bg: Option<&[f32; 4]>,
         draw_mode: GLenum,
@@ -63,7 +65,7 @@ impl MaskedSolidShader {
             gl::ActiveTexture(gl::TEXTURE0 + texture_image_unit);
         }
         explode_if_gl_error()?;
-        mask.bind(gl::TEXTURE_2D)?;
+        mask.bind()?;
 
         self.set_parameters(
             texture_image_unit,

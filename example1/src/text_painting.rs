@@ -1,6 +1,6 @@
-use gl::types::GLint;
+use gl::types::{GLenum, GLint};
 use gl_thin::gl_fancy::GPUState;
-use gl_thin::gl_helper::{GLErrorWrapper, Texture};
+use gl_thin::gl_helper::{GLErrorWrapper, Texture, TextureWithTarget};
 use rusttype::{point, Font, PositionedGlyph, Scale};
 
 pub fn text_to_greyscale_texture(
@@ -9,7 +9,8 @@ pub fn text_to_greyscale_texture(
     font_size: f32,
     message: &str,
     gpu_state: &mut GPUState,
-) -> Result<Texture, GLErrorWrapper> {
+    tgt: GLenum,
+) -> Result<TextureWithTarget, GLErrorWrapper> {
     let font = Font::try_from_bytes(include_bytes!("Montserrat-Regular.ttf"))
         .expect("failed to parse font");
 
@@ -35,14 +36,14 @@ pub fn text_to_greyscale_texture(
     }
 
     // let (width, height) = target.get_dimensions()?;
-    let target = Texture::new()?;
+    let texture = Texture::new()?;
 
     if false {
         // this doesn't work on the oculus
         let mut pixel_data = vec![99u8; (width * height) as usize];
         render_glyphs_to_grey(width, height, &glyphs, &mut pixel_data);
-        target
-            .bound(gl::TEXTURE_2D, gpu_state)?
+        texture
+            .bound(tgt, gpu_state)?
             .write_pixels_and_generate_mipmap(
                 // gl::TEXTURE_2D,
                 0,
@@ -64,8 +65,8 @@ pub fn text_to_greyscale_texture(
             );
         }
 
-        target
-            .bound(gl::TEXTURE_2D, gpu_state)?
+        texture
+            .bound(tgt, gpu_state)?
             .write_pixels_and_generate_mipmap(
                 0,
                 gl::RGB as GLint,
@@ -75,7 +76,7 @@ pub fn text_to_greyscale_texture(
                 pixel_data.as_slice(),
             )?;
     }
-    Ok(target)
+    Ok(TextureWithTarget::new(texture, tgt))
 }
 
 pub fn render_glyphs_to_grey<'a, 'f: 'a>(

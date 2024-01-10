@@ -369,6 +369,7 @@ impl<'a, AT: GLBufferType, IT: GLBufferType> VertexBufferBundle<'a, AT, IT> {
 
 //
 
+#[derive(Copy, Clone)]
 pub struct ActiveTextureUnit(pub u32);
 
 impl ActiveTextureUnit {

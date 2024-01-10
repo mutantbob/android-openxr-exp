@@ -5,7 +5,7 @@ use bob_shaders::sun_phong_shader::SunPhongShader;
 use bob_shaders::GeometryBuffer;
 use gl::types::{GLfloat, GLint, GLsizei, GLushort};
 use gl_thin::gl_fancy::{BoundBuffers, GPUState, VertexBufferBundle};
-use gl_thin::gl_helper::{self, explode_if_gl_error, GLErrorWrapper, Program, Texture};
+use gl_thin::gl_helper::{self, explode_if_gl_error, GLErrorWrapper, Program, TextureWithTarget};
 use gl_thin::linear::XrMatrix4x4f;
 use std::mem::size_of;
 
@@ -152,7 +152,7 @@ impl GeometryBuffer<GLfloat, GLushort> for Suzanne {
 pub struct TextMessage {
     program: MaskedSolidShader,
     buffers: VertexBufferBundle<'static, GLfloat, GLushort>,
-    texture: Texture,
+    texture: TextureWithTarget,
 }
 
 impl TextMessage {
@@ -192,6 +192,7 @@ impl TextMessage {
             66.0,
             "Hail Bob!",
             gpu_state,
+            gl::TEXTURE_2D,
         )?;
 
         let rval = Self {

@@ -675,37 +675,37 @@ impl Texture {
     }
 
     #[deprecated]
-    pub fn get_width(&self) -> Result<GLint, GLErrorWrapper> {
-        self.bind(gl::TEXTURE_2D)?;
+    pub fn get_width(&self, target: GLenum) -> Result<GLint, GLErrorWrapper> {
+        self.bind(target)?;
 
         let mut rval = 0;
-        unsafe { gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut rval) };
+        unsafe { gl::GetTexLevelParameteriv(target, 0, gl::TEXTURE_WIDTH, &mut rval) };
         explode_if_gl_error()?;
 
         Ok(rval)
     }
 
     #[deprecated]
-    pub fn get_height(&self) -> Result<GLint, GLErrorWrapper> {
-        self.bind(gl::TEXTURE_2D)?;
+    pub fn get_height(&self, target: GLenum) -> Result<GLint, GLErrorWrapper> {
+        self.bind(target)?;
 
         let mut rval = 0;
-        unsafe { gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut rval) };
+        unsafe { gl::GetTexLevelParameteriv(target, 0, gl::TEXTURE_HEIGHT, &mut rval) };
         explode_if_gl_error()?;
 
         Ok(rval)
     }
 
     #[deprecated]
-    pub fn get_dimensions(&self) -> Result<(GLint, GLint), GLErrorWrapper> {
-        self.bind(gl::TEXTURE_2D)?;
+    pub fn get_dimensions(&self, target: GLenum) -> Result<(GLint, GLint), GLErrorWrapper> {
+        self.bind(target)?;
 
         let mut width = 0;
-        unsafe { gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width) };
+        unsafe { gl::GetTexLevelParameteriv(target, 0, gl::TEXTURE_WIDTH, &mut width) };
         explode_if_gl_error()?;
 
         let mut height = 0;
-        unsafe { gl::GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height) };
+        unsafe { gl::GetTexLevelParameteriv(target, 0, gl::TEXTURE_HEIGHT, &mut height) };
         explode_if_gl_error()?;
 
         Ok((width, height))
@@ -732,7 +732,7 @@ impl Texture {
             format,
             pixels,
         )?;
-        unsafe { self.generate_mipmap() }
+        unsafe { self.generate_mipmap(target) }
     }
 
     #[deprecated]
@@ -776,8 +776,8 @@ impl Texture {
 
     /// # Safety
     /// did you `bind()` this texture yet?
-    pub unsafe fn generate_mipmap(&self) -> Result<(), GLErrorWrapper> {
-        unsafe { gl::GenerateMipmap(gl::TEXTURE_2D) };
+    pub unsafe fn generate_mipmap(&self, target: GLenum) -> Result<(), GLErrorWrapper> {
+        unsafe { gl::GenerateMipmap(target) };
         explode_if_gl_error()
     }
 }
