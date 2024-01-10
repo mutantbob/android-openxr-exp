@@ -133,6 +133,22 @@ impl std::ops::Neg for XrVector3f {
     }
 }
 
+impl std::ops::AddAssign for XrVector3f {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.z += rhs.z;
+    }
+}
+
+impl std::ops::Div<f32> for XrVector3f {
+    type Output = XrVector3f;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        XrVector3f::new(self.x / rhs, self.y / rhs, self.z / rhs)
+    }
+}
+
 //
 
 #[derive(Copy, Clone, Debug)]
