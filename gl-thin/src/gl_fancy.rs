@@ -257,9 +257,6 @@ impl<'a, AT, IT> VertexBufferBundle<'a, AT, IT> {
         &'a self,
         gpu_state: &'a mut GPUState,
     ) -> Result<BoundBuffers<'a, AT, IT>, GLErrorWrapper> {
-        self.vertex_array.bind()?;
-        self.vertex_buffer.bind()?;
-        self.index_buffer.bind()?;
         gpu_state.bind_vertex_array_and_buffers(
             &self.vertex_array,
             &self.vertex_buffer,
