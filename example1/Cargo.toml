@@ -14,31 +14,31 @@ png = [
 ]
 
 [dependencies]
-android-activity = { version = "*" , features=["native-activity"]}
+android-activity = { version = "*", features = ["native-activity"] }
 android_logger = "*"
-log="*"
-rusttype="*"
-glutin = "0.30"
-gl="*"
-egli="*"
-winit = "*"
+log = "*"
+rusttype = "*"
+glutin = "0.32"
+gl = "*"
+egli = "*"
+winit = "0.30"
 raw-window-handle = "*"
 itertools = "*"
-gl-thin = { path="../gl-thin"}
+gl-thin = { path = "../gl-thin" }
 bob-shaders = { path = "../bob-shaders" }
-png = {version = "*", optional=true}
+png = { version = "*", optional = true }
 
 [dependencies.openxr]
-features=["linked"]
+features = ["linked"]
 #version=">=0.18"
 # until the OpenGlEs Graphics backend is published, we must use git
-git="https://github.com/Ralith/openxrs.git"
-rev="48b5875"
+git = "https://github.com/Ralith/openxrs.git"
+rev = "48b5875"
 [dependencies.openxr-sys]
 #version=">=0.18"
 # until the OpenGlEs Graphics backend is published, we must use git
-git="https://github.com/Ralith/openxrs.git"
-rev="48b5875"
+git = "https://github.com/Ralith/openxrs.git"
+rev = "48b5875"
 
 
 [lib]

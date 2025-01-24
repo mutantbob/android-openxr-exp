@@ -19,7 +19,8 @@ use openxr_sys::{Time, ViewConfigurationType};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle};
 use std::error::Error;
 use std::ffi::c_void;
-use winit::event_loop::EventLoopWindowTarget;
+use winit::event_loop::ActiveEventLoop;
+use winit::window::Window;
 
 //
 
@@ -113,7 +114,7 @@ impl ActiveRenderer {
         builder.build()
     }
 
-    pub fn new<T>(event_loop: &EventLoopWindowTarget<T>) -> Result<Self, Box<dyn Error>> {
+    pub fn new(event_loop: &ActiveEventLoop) -> Result<Self, Box<dyn Error>> {
         let (display_ptr, raw_context) = Self::build_android_egl_context(event_loop)?;
 
         let mut gpu_state = GPUState::new();
@@ -140,18 +141,18 @@ impl ActiveRenderer {
         })
     }
 
-    pub fn build_android_egl_context<T>(
-        event_loop: &EventLoopWindowTarget<T>,
+    pub fn build_android_egl_context(
+        event_loop: &ActiveEventLoop,
     ) -> Result<(*const c_void, *const c_void), Box<dyn Error>> {
-        let raw_display = event_loop.raw_display_handle();
+        let raw_display = event_loop.raw_display_handle()?;
 
         let Display::Egl(glutin_display) =
             unsafe { glutin::display::Display::new(raw_display, DisplayApiPreference::Egl) }?;
 
         let RawDisplay::Egl(display_ptr) = glutin_display.raw_display();
 
-        let window = winit::window::Window::new(event_loop)?;
-        let raw_window_handle = window.raw_window_handle();
+        let window = event_loop.create_window(Window::default_attributes())?;
+        let raw_window_handle = window.raw_window_handle()?;
 
         let template = Self::config_template(raw_window_handle);
 

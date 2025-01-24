@@ -16,7 +16,7 @@ pub struct RainbowTriangle<'a> {
     pub buffers: VertexBufferBundle<'a, GLfloat, u8>,
 }
 
-impl<'a> RainbowTriangle<'a> {
+impl RainbowTriangle<'_> {
     pub fn new(gpu_state: &mut GPUState) -> Result<Self, GLErrorWrapper> {
         let program = FlatColorShader::new()?;
 
